@@ -642,10 +642,11 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Text(
               ['Messages', 'People', 'Your profile'][_tab],
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.w800,
                 letterSpacing: -.7,
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
             const SizedBox(height: 4),
@@ -676,6 +677,7 @@ class _HomeScreenState extends State<HomeScreen> {
             IconButton(
               tooltip: 'New message',
               onPressed: _compose,
+              color: Theme.of(context).colorScheme.primary,
               icon: const Icon(Icons.edit_square),
             ),
           const SizedBox(width: 10),
@@ -698,15 +700,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-      floatingActionButton: _tab == 0 && _conversations.isNotEmpty
-          ? FloatingActionButton(
-              onPressed: _compose,
-              tooltip: 'New message',
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Theme.of(context).colorScheme.onPrimary,
-              child: const Icon(Icons.add_comment_outlined),
-            )
-          : null,
       extendBody: true,
       bottomNavigationBar: _HomeNavigationBar(
         selectedIndex: _tab,
