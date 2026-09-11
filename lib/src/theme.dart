@@ -232,16 +232,6 @@ ThemeData stepTheme(Brightness brightness) {
         borderRadius: BorderRadius.circular(StepShape.radiusLarge),
       ),
     ),
-    navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: dark ? StepPalette.cardDark : StepPalette.card,
-      indicatorColor: dark
-          ? StepPalette.accentSurfaceDark
-          : StepPalette.accentSurface,
-      elevation: 0,
-      labelTextStyle: const WidgetStatePropertyAll(
-        TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-      ),
-    ),
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: dark ? StepPalette.cardDark : StepPalette.card,
       shape: const RoundedRectangleBorder(

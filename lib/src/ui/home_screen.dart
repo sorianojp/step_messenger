@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import '../data/models.dart';
 import '../data/session.dart';
@@ -241,7 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Widget _inbox() {
+  Widget _inbox(double bottomInset) {
     final query = _search.text.toLowerCase();
     final conversations = _conversations
         .where(
@@ -457,7 +458,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                         ),
-                      const SliverToBoxAdapter(child: SizedBox(height: 90)),
+                      SliverToBoxAdapter(
+                        child: SizedBox(height: 90 + bottomInset),
+                      ),
                     ],
                   ),
                 ),
@@ -466,8 +469,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _settings() => ListView(
-    padding: const EdgeInsets.all(24),
+  Widget _settings(double bottomInset) => ListView(
+    padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + bottomInset),
     children: [
       Center(child: PersonAvatar(session.user!.name, size: 84)),
       const SizedBox(height: 16),
@@ -681,11 +684,18 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 900),
-          child: switch (_tab) {
-            0 => _inbox(),
-            1 => ContactsScreen(session: session, onOpen: _open),
-            _ => _settings(),
-          },
+          // The bar floats over the body; the Scaffold reports its height as
+          // bottom padding here, which the outer context does not see.
+          child: Builder(
+            builder: (context) {
+              final bottomInset = MediaQuery.paddingOf(context).bottom;
+              return switch (_tab) {
+                0 => _inbox(bottomInset),
+                1 => ContactsScreen(session: session, onOpen: _open),
+                _ => _settings(bottomInset),
+              };
+            },
+          ),
         ),
       ),
       floatingActionButton: _tab == 0 && _conversations.isNotEmpty
@@ -697,39 +707,11 @@ class _HomeScreenState extends State<HomeScreen> {
               child: const Icon(Icons.add_comment_outlined),
             )
           : null,
-      bottomNavigationBar: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(
-              color: Theme.of(context).colorScheme.outlineVariant,
-            ),
-          ),
-        ),
-        child: NavigationBar(
-          selectedIndex: _tab,
-          onDestinationSelected: (tab) => setState(() => _tab = tab),
-          destinations: [
-            NavigationDestination(
-              icon: Badge(
-                isLabelVisible: unread > 0,
-                label: Text(unread > 99 ? '99+' : '$unread'),
-                child: const Icon(Icons.chat_bubble_outline_rounded),
-              ),
-              selectedIcon: const Icon(Icons.chat_bubble_rounded),
-              label: 'Messages',
-            ),
-            const NavigationDestination(
-              icon: Icon(Icons.people_outline),
-              selectedIcon: Icon(Icons.people),
-              label: 'People',
-            ),
-            const NavigationDestination(
-              icon: Icon(Icons.person_outline),
-              selectedIcon: Icon(Icons.person),
-              label: 'Profile',
-            ),
-          ],
-        ),
+      extendBody: true,
+      bottomNavigationBar: _HomeNavigationBar(
+        selectedIndex: _tab,
+        unread: unread,
+        onDestinationSelected: (tab) => setState(() => _tab = tab),
       ),
     );
   }
@@ -741,5 +723,147 @@ class _HomeScreenState extends State<HomeScreen> {
     _events?.cancel();
     _search.dispose();
     super.dispose();
+  }
+}
+
+/// A floating, frosted bar in the style of TimeTab: lists scroll under it and
+/// the selected tab fills with the brand.
+class _HomeNavigationBar extends StatelessWidget {
+  const _HomeNavigationBar({
+    required this.selectedIndex,
+    required this.unread,
+    required this.onDestinationSelected,
+  });
+
+  final int selectedIndex;
+  final int unread;
+  final ValueChanged<int> onDestinationSelected;
+
+  static const _destinations = [
+    (
+      label: 'Messages',
+      icon: Icons.chat_bubble_outline_rounded,
+      selectedIcon: Icons.chat_bubble_rounded,
+    ),
+    (label: 'People', icon: Icons.people_outline, selectedIcon: Icons.people),
+    (label: 'Profile', icon: Icons.person_outline, selectedIcon: Icons.person),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final radius = BorderRadius.circular(24);
+
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Center(
+        heightFactor: 1,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: ClipRRect(
+            borderRadius: radius,
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colors.surface.withValues(alpha: .76),
+                  border: Border.all(
+                    color: colors.onSurface.withValues(alpha: .12),
+                  ),
+                  borderRadius: radius,
+                ),
+                child: SizedBox(
+                  height: 72,
+                  child: Padding(
+                    padding: const EdgeInsets.all(5),
+                    child: Row(
+                      children: [
+                        for (var i = 0; i < _destinations.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 4),
+                          Expanded(
+                            child: _HomeNavigationItem(
+                              label: _destinations[i].label,
+                              icon: i == selectedIndex
+                                  ? _destinations[i].selectedIcon
+                                  : _destinations[i].icon,
+                              selected: i == selectedIndex,
+                              badge: i == 0 ? unread : 0,
+                              onTap: () => onDestinationSelected(i),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeNavigationItem extends StatelessWidget {
+  const _HomeNavigationItem({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.badge,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final int badge;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final foreground = selected ? colors.onPrimary : colors.onSurface;
+
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: Material(
+        color: selected ? colors.primary : Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(24),
+          child: SizedBox(
+            height: 58,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // On the brand fill the badge inverts, or it would vanish.
+                Badge(
+                  isLabelVisible: badge > 0,
+                  label: Text(badge > 99 ? '99+' : '$badge'),
+                  backgroundColor: selected ? colors.onPrimary : null,
+                  textColor: selected ? colors.primary : null,
+                  child: Icon(icon, color: foreground, size: 22),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: foreground,
+                    fontSize: 12,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
