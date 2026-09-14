@@ -21,7 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Semantics(
                     label: 'Uhoo!',
@@ -30,31 +30,31 @@ class _LoginScreenState extends State<LoginScreen> {
                       borderRadius: BorderRadius.circular(16),
                       child: Image.asset(
                         'assets/logo.png',
-                        width: 144,
-                        height: 144,
+                        width: 120,
+                        height: 120,
                         fit: BoxFit.contain,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 32),
                   Text(
-                    'Your school.\nOne conversation away.',
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      height: 1.15,
-                      letterSpacing: -1,
+                    'Welcome to Uhoo!',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.5,
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 10),
                   Text(
-                    'Stay close to your school community. Messages, class updates, and the people who matter — all in one place.',
+                    'Stay connected to your school.',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 16,
-                      height: 1.6,
+                      fontSize: 15,
                       color: colors.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(height: 36),
+                  const SizedBox(height: 32),
                   if (session.error != null)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 16),
@@ -106,44 +106,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   if (session.hasSavedSession)
-                    Center(
-                      child: TextButton(
-                        onPressed: session.forgetSession,
-                        child: const Text('Use another account'),
-                      ),
+                    TextButton(
+                      onPressed: session.forgetSession,
+                      child: const Text('Use another account'),
                     ),
-                  const SizedBox(height: 20),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.lock_outline_rounded,
-                        size: 16,
-                        color: colors.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Sign in securely with your existing STEP account. Your school manages your account and role.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            height: 1.5,
-                            color: colors.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 64),
-                  const Divider(),
-                  const SizedBox(height: 18),
-                  Text(
-                    'A little closer. A lot more connected.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
                 ],
               ),
             ),
