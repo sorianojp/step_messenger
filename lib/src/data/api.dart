@@ -79,12 +79,10 @@ class ApiClient {
       );
     } on SocketException {
       throw const ApiException(
-        'Unable to connect to STEP Messenger. Check your connection and try again.',
+        'Unable to connect to Uhoo! Check your connection and try again.',
       );
     } on http.ClientException {
-      throw const ApiException(
-        'Unable to reach STEP Messenger. Please try again.',
-      );
+      throw const ApiException('Unable to reach Uhoo! Please try again.');
     }
   }
 
@@ -119,7 +117,7 @@ class ApiClient {
     }
     if (data.isEmpty && response.statusCode != 204) {
       throw const ApiException(
-        'This address did not return a valid Messenger response.',
+        'This address did not return a valid Uhoo! response.',
       );
     }
     return data;

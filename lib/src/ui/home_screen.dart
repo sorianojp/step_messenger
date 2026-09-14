@@ -551,11 +551,11 @@ class _HomeScreenState extends State<HomeScreen> {
       ListTile(
         contentPadding: EdgeInsets.zero,
         leading: const Icon(Icons.info_outline),
-        title: const Text('About STEP Messenger'),
+        title: const Text('About Uhoo!'),
         subtitle: const Text('Version 1.0.0'),
         onTap: () => showAboutDialog(
           context: context,
-          applicationName: 'STEP Messenger',
+          applicationName: 'Uhoo!',
           applicationVersion: '1.0.0',
           applicationIcon: const Icon(Icons.school_rounded, size: 40),
           children: [
@@ -620,7 +620,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     if (session.team == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('STEP Messenger')),
+        appBar: AppBar(title: const Text('Uhoo!')),
         body: EmptyState(
           icon: Icons.school_outlined,
           title: 'Your school is not connected yet',

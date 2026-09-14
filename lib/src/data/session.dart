@@ -13,7 +13,7 @@ import 'models.dart';
 import 'realtime.dart';
 
 class SessionController extends ChangeNotifier with WidgetsBindingObserver {
-  static const officialBaseUrl = 'https://messenger.udd.edu.ph';
+  static const officialBaseUrl = 'https://uhoo.udd.edu.ph';
 
   SessionController({FlutterSecureStorage? storage})
     : _storage = storage ?? const FlutterSecureStorage() {
@@ -97,7 +97,7 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
         '/api/mobile/auth/start',
         body: {
           'code_challenge': challenge,
-          'device_name': 'STEP Messenger · ${Platform.operatingSystem}',
+          'device_name': 'Uhoo! · ${Platform.operatingSystem}',
         },
       );
       final authorization = Uri.parse(start['authorization_url'] as String);

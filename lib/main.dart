@@ -5,6 +5,6 @@ import 'src/data/session.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   final session = SessionController();
-  runApp(StepMessengerApp(session: session));
+  runApp(UhooApp(session: session));
   session.restore();
 }

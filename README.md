@@ -1,4 +1,4 @@
-# STEP Messenger
+# Uhoo!
 
 The Android and iOS 14+ mobile client for the Laravel app in `../chat-app`.
 
@@ -14,7 +14,7 @@ cd step_messenger
 
 If Flutter is on your PATH, use `flutter` directly. The mobile app is
 permanently pinned to the official Laravel deployment at
-`https://messenger.udd.edu.ph`; the server cannot be changed from the sign-in
+`https://uhoo.udd.edu.ph`; the server cannot be changed from the sign-in
 screen or with a build flag.
 
 The server must include the mobile changes in `chat-app`. Use an existing STEP

@@ -85,8 +85,8 @@ void main() {
     },
   );
 
-  test('mobile sessions are pinned to the official Messenger server', () {
-    expect(SessionController.officialBaseUrl, 'https://messenger.udd.edu.ph');
+  test('mobile sessions are pinned to the official Uhoo! server', () {
+    expect(SessionController.officialBaseUrl, 'https://uhoo.udd.edu.ph');
   });
 
   test('sessions saved for another server are discarded', () async {

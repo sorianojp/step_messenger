@@ -602,7 +602,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           ? '${_conversation.participants.length} members'
                           : other?.online == true
                           ? 'Active recently'
-                          : 'STEP Messenger',
+                          : 'Uhoo!',
                       style: TextStyle(
                         fontSize: 11,
                         color: colors.onSurfaceVariant,

@@ -23,33 +23,20 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colors.primary,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Icon(
-                          Icons.school_rounded,
-                          color: colors.onPrimary,
-                          size: 26,
-                        ),
+                  Semantics(
+                    label: 'Uhoo!',
+                    image: true,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Image.asset(
+                        'assets/logo.png',
+                        width: 144,
+                        height: 144,
+                        fit: BoxFit.contain,
                       ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'STEP Messenger',
-                          style: TextStyle(
-                            fontSize: 19,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 76),
+                  const SizedBox(height: 48),
                   Text(
                     'Your school.\nOne conversation away.',
                     style: Theme.of(context).textTheme.headlineLarge?.copyWith(
@@ -68,31 +55,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 36),
-                  if (!session.hasSavedSession)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colors.surfaceContainerLow,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.language_rounded, size: 20),
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'messenger.udd.edu.ph',
-                              style: TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  const SizedBox(height: 16),
                   if (session.error != null)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 16),

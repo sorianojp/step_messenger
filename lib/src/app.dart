@@ -4,8 +4,8 @@ import 'theme.dart';
 import 'ui/home_screen.dart';
 import 'ui/login_screen.dart';
 
-class StepMessengerApp extends StatelessWidget {
-  const StepMessengerApp({super.key, required this.session});
+class UhooApp extends StatelessWidget {
+  const UhooApp({super.key, required this.session});
   final SessionController session;
 
   @override
@@ -14,7 +14,7 @@ class StepMessengerApp extends StatelessWidget {
     builder: (context, _) => MaterialApp(
       // Replacing the navigator removes protected routes on session expiry.
       key: ValueKey(session.user?.id),
-      title: 'STEP Messenger',
+      title: 'Uhoo!',
       debugShowCheckedModeBanner: false,
       theme: stepTheme(Brightness.light),
       darkTheme: stepTheme(Brightness.dark),

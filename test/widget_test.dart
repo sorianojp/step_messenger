@@ -182,7 +182,7 @@ void main() {
       final session = TestSession(client);
       final realtime = TestRealtime(client);
       session.realtime = realtime;
-      await tester.pumpWidget(StepMessengerApp(session: session));
+      await tester.pumpWidget(UhooApp(session: session));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Jane Teacher').first);
       await tester.pumpAndSettle();
@@ -212,7 +212,7 @@ void main() {
     },
   );
 
-  testWidgets('sign in fits a narrow screen and shows the official server', (
+  testWidgets('sign in fits a narrow screen without showing the server', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(320, 640);
@@ -221,9 +221,17 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     final session = SessionController();
     await session.restore();
-    await tester.pumpWidget(StepMessengerApp(session: session));
-    expect(find.text('STEP Messenger'), findsOneWidget);
-    expect(find.text('messenger.udd.edu.ph'), findsOneWidget);
+    await tester.pumpWidget(UhooApp(session: session));
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName == 'assets/logo.png',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('uhoo.udd.edu.ph'), findsNothing);
     expect(find.byType(TextField), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
@@ -260,7 +268,7 @@ void main() {
       }),
     );
     final session = TestSession(client);
-    await tester.pumpWidget(StepMessengerApp(session: session));
+    await tester.pumpWidget(UhooApp(session: session));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Jane Teacher').first);
     await tester.pumpAndSettle();
