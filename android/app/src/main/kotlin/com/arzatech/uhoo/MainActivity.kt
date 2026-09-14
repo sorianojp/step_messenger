@@ -1,4 +1,4 @@
-package com.example.step_messenger
+package com.arzatech.uhoo
 
 import io.flutter.embedding.android.FlutterActivity
 

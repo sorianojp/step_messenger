@@ -40,8 +40,7 @@ Reverb configuration. Existing web authentication remains available.
 - Poll creation and voting, event creation and RSVPs.
 - Group renaming, adding/removing members, and leaving groups, subject to
   Laravel's existing permissions.
-- Notice categories and reading; teachers/admins can publish notices.
-- Reverb updates for subscribed conversations and notices, automatic
+- Reverb updates for subscribed conversations, automatic
   reconnection, and foreground HTTP refresh as a fallback. Polling also
   discovers newly created conversations. Read receipts, recent activity, and live typing shared with the web app.
 - System, light, and dark appearance; loading, empty, and retry states.
@@ -67,8 +66,8 @@ python3 tool/check_backend.py
 
 This starts temporary Laravel and Reverb servers, uses a disposable SQLite
 database with isolated users, and exercises the actual Dart clients. It checks
-26 flows including channel membership, typing, messages, pagination, receipts, group photos, nicknames, shared files,
-reactions, attachments, polls, notices, reconnection, and token revocation.
+25 flows including channel membership, typing, messages, pagination, receipts, group photos, nicknames, shared files,
+reactions, attachments, polls, reconnection, and token revocation.
 The helper removes its servers and temporary data afterward. Use `--php` and
 `--dart` to override executable paths if they are not on PATH. It never signs
 in to the live STEP service.
@@ -91,7 +90,6 @@ client and secure-storage mock; they do not contact the school server.
 - Offline message history and a background send queue are not implemented.
   Reconnecting reloads data from Laravel.
 - Android retains the starter's debug signing configuration for development.
-  Set your production application identifiers, app icons, release signing,
-  and distribution configuration before store submission.
+  Set up release signing and distribution configuration before store submission.
 - Secure storage is constrained to 10.x for the current Flutter/Android SDK.
   The lockfile records the verified package versions.

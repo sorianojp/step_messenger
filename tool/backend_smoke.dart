@@ -312,19 +312,6 @@ Future<void> main(List<String> arguments) async {
       (vote['data'] as Json)['poll']['total_voters'] == 1,
       'Poll creation and voting',
     );
-    final notice = await alice.request(
-      'POST',
-      '$base/notices',
-      body: {
-        'category': 'announcement',
-        'title': 'Integration notice',
-        'body': 'Only temporary test users can see this.',
-      },
-    );
-    check(
-      (notice['data'] as Json)['title'] == 'Integration notice',
-      'Teacher notice publishing',
-    );
     b.stop();
     final reconnected = nextEvent(b, 'subscribed', channel: presenceChannel);
     b.start();
