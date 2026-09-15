@@ -135,6 +135,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await Navigator.push(
       context,
       MaterialPageRoute<void>(
+        settings: RouteSettings(name: '/conversations/${conversation.id}'),
         builder: (_) =>
             ChatScreen(session: session, conversation: conversation),
       ),

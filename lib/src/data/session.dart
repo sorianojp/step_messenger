@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -10,16 +11,21 @@ import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:path_provider/path_provider.dart';
 import 'api.dart';
 import 'models.dart';
+import 'push_notifications.dart';
 import 'realtime.dart';
 
 class SessionController extends ChangeNotifier with WidgetsBindingObserver {
   static const officialBaseUrl = 'https://uhoo.udd.edu.ph';
 
-  SessionController({FlutterSecureStorage? storage})
-    : _storage = storage ?? const FlutterSecureStorage() {
+  SessionController({
+    FlutterSecureStorage? storage,
+    PushNotificationService? pushNotifications,
+  }) : _storage = storage ?? const FlutterSecureStorage(),
+       pushNotifications = pushNotifications ?? PushNotificationService() {
     WidgetsBinding.instance.addObserver(this);
   }
   final FlutterSecureStorage _storage;
+  final PushNotificationService pushNotifications;
   ApiClient? _api;
   ApiClient get api => _api!;
   Person? user;
@@ -159,6 +165,7 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
         teams.where((t) => t.id == selected).firstOrNull ?? teams.firstOrNull;
     _connectRealtime();
     await _save();
+    unawaited(pushNotifications.bind(api));
   }
 
   Future<void> selectTeam(Team selected) async {
@@ -195,6 +202,7 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> forgetSession() async {
+    pushNotifications.unbind();
     realtime?.dispose();
     realtime = null;
     if (_api != null) _api!.token = null;
@@ -236,6 +244,7 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    pushNotifications.dispose();
     realtime?.dispose();
     _api?.close();
     super.dispose();

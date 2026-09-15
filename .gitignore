@@ -32,6 +32,8 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+/firebase.android.json
+/firebase.ios.json
 
 # Symbolication related
 app.*.symbols
