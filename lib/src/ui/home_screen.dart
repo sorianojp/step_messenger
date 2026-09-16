@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:ui' show ImageFilter;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../data/models.dart';
 import '../data/session.dart';
@@ -33,6 +34,12 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    if (kDebugMode) {
+      debugPrint(
+        '[ui] HomeScreen mounted (team ${session.team?.slug}, '
+        'session #${identityHashCode(session)})',
+      );
+    }
     if (session.team != null) {
       _load();
       _poll = Timer.periodic(const Duration(seconds: 25), (_) {

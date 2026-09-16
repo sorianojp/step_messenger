@@ -17,6 +17,13 @@ import 'realtime.dart';
 class SessionController extends ChangeNotifier with WidgetsBindingObserver {
   static const officialBaseUrl = 'https://uhoo.udd.edu.ph';
 
+  /// The keychain is the only step of startup with no timeout of its own, and
+  /// a stalled read leaves the app on the launch spinner forever.
+  static const _storageTimeout = Duration(seconds: 10);
+
+  static int _instances = 0;
+  final int _instance = ++_instances;
+
   SessionController({
     FlutterSecureStorage? storage,
     PushNotificationService? pushNotifications,
@@ -42,6 +49,10 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
   String get teamPath => '/api/teams/${Uri.encodeComponent(team!.slug)}';
   bool get hasSavedSession => _api?.token != null;
 
+  void _trace(String step) {
+    if (kDebugMode) debugPrint('[session#$_instance] $step');
+  }
+
   void _configure(String? token) {
     _api?.close();
     _api = ApiClient(baseUrl: officialBaseUrl)
@@ -53,9 +64,15 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
     loading = true;
     error = null;
     notifyListeners();
+    _trace('restore: start');
     try {
-      final stored = await _storage.read(key: 'step.session');
-      final preferredTheme = await _storage.read(key: 'step.theme');
+      final stored = await _storage
+          .read(key: 'step.session')
+          .timeout(_storageTimeout);
+      _trace('restore: saved session ${stored == null ? 'absent' : 'found'}');
+      final preferredTheme = await _storage
+          .read(key: 'step.theme')
+          .timeout(_storageTimeout);
       themeMode =
           ThemeMode.values.where((t) => t.name == preferredTheme).firstOrNull ??
           ThemeMode.system;
@@ -71,6 +88,9 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
           await _storage.delete(key: 'step.session');
         }
       }
+    } on TimeoutException {
+      _trace('restore: secure storage timed out');
+      error = 'Could not read your saved sign-in. Please sign in again.';
     } catch (e) {
       if (kDebugMode && e is PlatformException) {
         debugPrint(
@@ -82,6 +102,7 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
           : 'Could not restore your session. Please try again.';
     }
     loading = false;
+    _trace('restore: finished (user ${user?.id}, error $error)');
     notifyListeners();
   }
 
@@ -112,6 +133,7 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
           'The server sign-in address does not match. Contact your school administrator.',
         );
       }
+      _trace('signIn: opening STEP authorization');
       final result = Uri.parse(
         await FlutterWebAuth2.authenticate(
           url: authorization.toString(),
@@ -139,9 +161,11 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
           'code_verifier': verifier,
         },
       );
+      _trace('signIn: code exchanged');
       api.token = response['token'] as String;
       await _save();
       await _bootstrap();
+      _trace('signIn: bootstrap complete');
     } on PlatformException catch (e) {
       error = e.code == 'CANCELED'
           ? 'Sign-in was cancelled.'
@@ -156,16 +180,21 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _bootstrap({int? preferredTeam}) async {
+    _trace('bootstrap: requesting session');
     final data = await api.request('GET', '/api/mobile/session');
+    _trace('bootstrap: session received');
     user = Person(data['user'] as Json);
     teams = records(data['teams']).map(Team.new).toList();
     _realtimeConfig = data['realtime'] as Json?;
     final selected = preferredTeam ?? user!.json['current_team_id'];
     team =
         teams.where((t) => t.id == selected).firstOrNull ?? teams.firstOrNull;
+    _trace('bootstrap: ${teams.length} team(s), selected ${team?.slug}');
     _connectRealtime();
     await _save();
+    _trace('bootstrap: session saved');
     unawaited(pushNotifications.bind(api));
+    _trace('bootstrap: push bind dispatched');
   }
 
   Future<void> selectTeam(Team selected) async {
@@ -187,14 +216,19 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _save() => _storage.write(
-    key: 'step.session',
-    value: jsonEncode({
-      'server': officialBaseUrl,
-      'token': api.token,
-      'team_id': team?.id,
-    }),
-  );
+  Future<void> _save() => _storage
+      .write(
+        key: 'step.session',
+        value: jsonEncode({
+          'server': officialBaseUrl,
+          'token': api.token,
+          'team_id': team?.id,
+        }),
+      )
+      .timeout(
+        _storageTimeout,
+        onTimeout: () => _trace('save: secure storage timed out'),
+      );
 
   Future<void> signOut() async {
     if (api.token != null) await api.request('DELETE', '/api/mobile/session');
@@ -202,6 +236,7 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> forgetSession() async {
+    _trace('forgetSession: clearing user and token');
     pushNotifications.unbind();
     realtime?.dispose();
     realtime = null;
@@ -221,6 +256,7 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void expire() {
+    _trace('expire: 401 from the server');
     error = 'Your session expired. Please sign in again.';
     forgetSession();
   }

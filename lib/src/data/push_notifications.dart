@@ -32,6 +32,14 @@ class PushDestination {
 }
 
 class PushNotificationService {
+  static const _tokenRetryDelays = <Duration>[
+    Duration(seconds: 2),
+    Duration(seconds: 5),
+    Duration(seconds: 10),
+    Duration(seconds: 30),
+    Duration(minutes: 1),
+  ];
+
   static const _channel = AndroidNotificationChannel(
     'uhoo_messages',
     'Messages',
@@ -47,12 +55,22 @@ class PushNotificationService {
   bool _available = false;
   bool _syncing = false;
   bool _syncAgain = false;
+  Timer? _tokenRetryTimer;
+  int _tokenRetryIndex = 0;
 
   Stream<PushDestination> get opened => _opened.stream;
   bool get hasPending => _pending != null;
 
+  void _trace(String step) {
+    if (kDebugMode) debugPrint('[push] $step');
+  }
+
   Future<void> initialize() async {
-    if (!FirebaseConfig.isConfigured || kIsWeb) return;
+    if (!FirebaseConfig.isConfigured || kIsWeb) {
+      _trace('initialize: skipped (not a configured mobile platform)');
+      return;
+    }
+    _trace('initialize: start');
     try {
       await Firebase.initializeApp(options: FirebaseConfig.options);
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
@@ -113,14 +131,22 @@ class PushNotificationService {
         }
       }
       _available = true;
+      _trace('initialize: ready');
     } catch (error) {
-      if (kDebugMode) debugPrint('Push notifications unavailable: $error');
+      _trace('initialize: FAILED ($error)');
     }
   }
 
   Future<void> bind(ApiClient api) async {
     _api = api;
-    if (!_available) return;
+    _tokenRetryTimer?.cancel();
+    _tokenRetryTimer = null;
+    _tokenRetryIndex = 0;
+    if (!_available) {
+      _trace('bind: skipped, push never initialized');
+      return;
+    }
+    _trace('bind: requesting permission');
     try {
       final settings = await FirebaseMessaging.instance.requestPermission(
         alert: true,
@@ -131,17 +157,21 @@ class PushNotificationService {
         provisional: false,
         sound: true,
       );
+      _trace('bind: permission ${settings.authorizationStatus.name}');
       if (settings.authorizationStatus == AuthorizationStatus.authorized ||
           settings.authorizationStatus == AuthorizationStatus.provisional) {
         await _syncToken();
       }
     } catch (error) {
-      if (kDebugMode) debugPrint('Push permission/token failed: $error');
+      _trace('bind: FAILED ($error)');
     }
   }
 
   void unbind() {
     _api = null;
+    _tokenRetryTimer?.cancel();
+    _tokenRetryTimer = null;
+    _tokenRetryIndex = 0;
   }
 
   PushDestination? takePending() {
@@ -156,10 +186,26 @@ class PushNotificationService {
       return;
     }
     final api = _api;
-    if (!_available || api?.token == null) return;
+    if (!_available || api?.token == null) {
+      _trace('syncToken: skipped (available $_available, '
+          'signed in ${api?.token != null})');
+      return;
+    }
     _syncing = true;
     try {
+      // On Apple platforms, Firebase cannot issue an FCM token until APNs has
+      // finished registering this installation. Permission may resolve before
+      // that asynchronous registration callback arrives.
+      if (Platform.isIOS) {
+        final apns = await FirebaseMessaging.instance.getAPNSToken();
+        _trace('syncToken: APNs token ${apns == null ? 'NULL' : 'present'}');
+        if (apns == null) {
+          _scheduleTokenSync();
+          return;
+        }
+      }
       final token = await FirebaseMessaging.instance.getToken();
+      _trace('syncToken: FCM token ${token == null || token.isEmpty ? 'NULL' : '${token.substring(0, 12)}…'}');
       if (token == null || token.isEmpty || _api != api) return;
       await api!.request(
         'PUT',
@@ -170,8 +216,13 @@ class PushNotificationService {
           'device_name': 'Uhoo! · ${Platform.operatingSystem}',
         },
       );
+      _trace('syncToken: registered with the server');
+      _tokenRetryTimer?.cancel();
+      _tokenRetryTimer = null;
+      _tokenRetryIndex = 0;
     } catch (error) {
-      if (kDebugMode) debugPrint('Push token registration failed: $error');
+      _trace('syncToken: FAILED ($error)');
+      if (Platform.isIOS) _scheduleTokenSync();
     } finally {
       _syncing = false;
       if (_syncAgain) {
@@ -179,6 +230,25 @@ class PushNotificationService {
         unawaited(_syncToken());
       }
     }
+  }
+
+  void _scheduleTokenSync() {
+    if (_api == null || _tokenRetryTimer?.isActive == true) return;
+    if (_tokenRetryIndex >= _tokenRetryDelays.length) {
+      if (kDebugMode) {
+        debugPrint(
+          'APNs did not provide a device token. Check the Push Notifications '
+          'capability and the provisioning profile, then reopen the app.',
+        );
+      }
+      return;
+    }
+    final delay = _tokenRetryDelays[_tokenRetryIndex++];
+    _trace('syncToken: retrying in ${delay.inSeconds}s');
+    _tokenRetryTimer = Timer(delay, () {
+      _tokenRetryTimer = null;
+      unawaited(_syncToken());
+    });
   }
 
   Future<void> _showForegroundNotification(RemoteMessage message) async {
@@ -224,6 +294,7 @@ class PushNotificationService {
   }
 
   void dispose() {
+    _tokenRetryTimer?.cancel();
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'data/models.dart';
 import 'data/push_notifications.dart';
@@ -105,11 +106,7 @@ class _UhooAppState extends State<UhooApp> {
         theme: stepTheme(Brightness.light),
         darkTheme: stepTheme(Brightness.dark),
         themeMode: session.themeMode,
-        home: session.loading
-            ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-            : session.user == null
-            ? LoginScreen(session: session)
-            : HomeScreen(key: ValueKey(session.team?.id), session: session),
+        home: _SessionGate(session: session),
       );
     },
   );
@@ -119,4 +116,37 @@ class _UhooAppState extends State<UhooApp> {
     _notificationOpens?.cancel();
     super.dispose();
   }
+}
+
+/// Chooses the screen from inside the route.
+///
+/// A [ModalRoute] builds its page once and caches it, and neither rebuilding
+/// [MaterialApp] nor changing its `home` clears that cache. Switching screens
+/// from the `home` argument therefore left whatever was built first on screen
+/// forever. Listening here, below the route, rebuilds normally.
+class _SessionGate extends StatelessWidget {
+  const _SessionGate({required this.session});
+
+  final SessionController session;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: session,
+    builder: (context, _) {
+      if (kDebugMode) {
+        debugPrint(
+          '[ui] gate -> ${session.loading ? 'spinner' : session.user == null ? 'login' : 'home'} '
+          '(loading ${session.loading}, busy ${session.busy}, '
+          'user ${session.user?.id}, team ${session.team?.slug})',
+        );
+      }
+      if (session.loading) {
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      }
+      if (session.user == null) {
+        return LoginScreen(session: session);
+      }
+      return HomeScreen(key: ValueKey(session.team?.id), session: session);
+    },
+  );
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../data/session.dart';
 
@@ -12,6 +13,13 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
+    if (kDebugMode) {
+      debugPrint(
+        '[ui] LoginScreen build (user ${session.user?.id}, '
+        'saved ${session.hasSavedSession}, '
+        'session #${identityHashCode(session)})',
+      );
+    }
     final colors = Theme.of(context).colorScheme;
     return Scaffold(
       body: SafeArea(
