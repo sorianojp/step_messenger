@@ -789,29 +789,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   ),
                 ),
               const Divider(),
-              if (_conversation.locked)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 18),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.lock_clock_outlined,
-                        size: 18,
-                        color: colors.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          'This previous-term classroom chat is archived and read-only.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: colors.onSurfaceVariant),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              if (!_conversation.locked && (_reply != null || _editing != null))
+              if (_reply != null || _editing != null)
                 ListTile(
                   dense: true,
                   leading: Icon(_editing != null ? Icons.edit : Icons.reply),
@@ -841,7 +819,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     icon: const Icon(Icons.close, size: 18),
                   ),
                 ),
-              if (!_conversation.locked && _files.isNotEmpty)
+              if (_files.isNotEmpty)
                 SizedBox(
                   height: 54,
                   child: ListView(
@@ -868,69 +846,67 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     ],
                   ),
                 ),
-              if (!_conversation.locked)
-                SafeArea(
-                  top: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(6, 8, 12, 10),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        IconButton(
-                          tooltip: 'Add attachment, poll, or event',
-                          onPressed: _sending || _editing != null ? null : _add,
-                          icon: const Icon(Icons.add_circle_outline),
-                        ),
-                        Expanded(
-                          child: TextField(
-                            controller: _body,
-                            enabled: !_sending,
-                            minLines: 1,
-                            maxLines: 5,
-                            textCapitalization: TextCapitalization.sentences,
-                            decoration: const InputDecoration(
-                              hintText: 'Message…',
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 15,
-                                vertical: 12,
-                              ),
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(6, 8, 12, 10),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      IconButton(
+                        tooltip: 'Add attachment, poll, or event',
+                        onPressed: _sending || _editing != null ? null : _add,
+                        icon: const Icon(Icons.add_circle_outline),
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: _body,
+                          enabled: !_sending,
+                          minLines: 1,
+                          maxLines: 5,
+                          textCapitalization: TextCapitalization.sentences,
+                          decoration: const InputDecoration(
+                            hintText: 'Message…',
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 15,
+                              vertical: 12,
                             ),
-                            onChanged: (_) => _composerChanged(),
                           ),
+                          onChanged: (_) => _composerChanged(),
                         ),
-                        const SizedBox(width: 8),
-                        SizedBox(
-                          width: 44,
-                          height: 44,
-                          child: IconButton.filled(
-                            tooltip: _editing != null
-                                ? 'Save edit'
-                                : 'Send message',
-                            onPressed:
-                                _sending ||
-                                    (_body.text.trim().isEmpty &&
-                                        _files.isEmpty)
-                                ? null
-                                : _send,
-                            icon: _sending
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : Icon(
-                                    _editing != null
-                                        ? Icons.check
-                                        : Icons.arrow_upward_rounded,
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 44,
+                        height: 44,
+                        child: IconButton.filled(
+                          tooltip: _editing != null
+                              ? 'Save edit'
+                              : 'Send message',
+                          onPressed:
+                              _sending ||
+                                  (_body.text.trim().isEmpty && _files.isEmpty)
+                              ? null
+                              : _send,
+                          icon: _sending
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
                                   ),
-                          ),
+                                )
+                              : Icon(
+                                  _editing != null
+                                      ? Icons.check
+                                      : Icons.arrow_upward_rounded,
+                                ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
+              ),
             ],
           ),
         ),

@@ -229,24 +229,6 @@ class _ConversationDetailsState extends State<ConversationDetails> {
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
-          if (_conversation.managedByStep) ...[
-            const SizedBox(height: 18),
-            Card(
-              child: ListTile(
-                leading: Icon(
-                  _conversation.locked
-                      ? Icons.lock_clock_outlined
-                      : Icons.school_outlined,
-                ),
-                title: const Text('Managed by STEP'),
-                subtitle: Text(
-                  _conversation.locked
-                      ? 'This previous-term classroom is archived and read-only.'
-                      : '${_conversation.schoolClass?['school_year'] ?? 'Current term'} · Semester ${_conversation.schoolClass?['semester'] ?? '—'}\nMembership is synchronized from the STEP classroom.',
-                ),
-              ),
-            ),
-          ],
           const SizedBox(height: 28),
           ListTile(
             contentPadding: EdgeInsets.zero,
@@ -343,19 +325,16 @@ class _ConversationDetailsState extends State<ConversationDetails> {
               'pinned': !_conversation.pinned,
             }),
           ),
-          if (!_conversation.locked)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.archive_outlined),
-              title: Text(
-                _conversation.archived
-                    ? 'Move to inbox'
-                    : 'Archive conversation',
-              ),
-              onTap: () => _update('PATCH', '$_path/archive', {
-                'archived': !_conversation.archived,
-              }),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.archive_outlined),
+            title: Text(
+              _conversation.archived ? 'Move to inbox' : 'Archive conversation',
             ),
+            onTap: () => _update('PATCH', '$_path/archive', {
+              'archived': !_conversation.archived,
+            }),
+          ),
           if (_pinned.isNotEmpty) ...[
             const SizedBox(height: 20),
             const Text(
@@ -466,8 +445,7 @@ class _ConversationDetailsState extends State<ConversationDetails> {
                     )
                   : null,
             ),
-          if (_conversation.type == 'group' &&
-              !_conversation.managedByStep) ...[
+          if (_conversation.type == 'group') ...[
             const SizedBox(height: 24),
             OutlinedButton.icon(
               onPressed: () async {

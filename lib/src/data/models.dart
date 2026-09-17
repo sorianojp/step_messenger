@@ -60,12 +60,6 @@ class Conversation {
   int get unread => json['unread_count'] as int? ?? 0;
   bool get pinned => json['pinned_at'] != null;
   bool get archived => json['archived_at'] != null;
-  bool get managedByStep => json['managed_by_step'] == true;
-  bool get locked => json['locked_at'] != null;
-  String get syncStatus => json['sync_status'] as String? ?? 'active';
-  Json? get schoolClass => json['school_class'] is Map
-      ? Map<String, dynamic>.from(json['school_class'] as Map)
-      : null;
   bool get muted => json['notification_preference'] == 'muted';
   String get notifications =>
       json['notification_preference'] as String? ?? 'all';
