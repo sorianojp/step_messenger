@@ -80,9 +80,8 @@ client and secure-storage mock; they do not contact the school server.
 
 - This is a native mobile client. The template web/desktop targets are not
   configured for the mobile SSO callback.
-- Background push notifications are not configured. Reverb and periodic
-  refresh update the app while it is open; operating-system push requires a
-  separate FCM/APNs integration and credentials.
+- Background push notifications use FCM/APNs. Physical-device delivery still
+  depends on valid Firebase credentials, APNs capability, and provisioning.
 - Group owners can change or remove group photos and set or clear member
   nicknames by tapping a member in conversation details. Shared media, files,
   and links are available from conversation details; downloads require membership.
