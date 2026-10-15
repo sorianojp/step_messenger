@@ -1,6 +1,6 @@
 # Uhoo!
 
-The Android and iOS 14+ mobile client for the Laravel app in `../chat-app`.
+The Android and iOS 15+ mobile client for the Laravel app in `../chat-app`.
 
 ## Run
 

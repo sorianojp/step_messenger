@@ -558,6 +558,15 @@ class _HomeScreenState extends State<HomeScreen> {
       const Divider(),
       ListTile(
         contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.help_outline),
+        title: const Text('Help and support'),
+        subtitle: const Text('Contact Uhoo! support'),
+        trailing: const Icon(Icons.open_in_new),
+        onTap: () => openSupportPage(context),
+      ),
+      const Divider(),
+      ListTile(
+        contentPadding: EdgeInsets.zero,
         leading: const Icon(Icons.info_outline),
         title: const Text('About Uhoo!'),
         subtitle: const Text('Version 1.0.0'),

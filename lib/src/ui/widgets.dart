@@ -1,7 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../data/api.dart';
+import '../data/session.dart';
 import '../theme.dart';
+
+Future<void> openSupportPage(BuildContext context) async {
+  try {
+    final opened = await launchUrl(
+      Uri.parse('${SessionController.officialBaseUrl}/support'),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!opened) {
+      throw const ApiException('Unable to open support. Please try again.');
+    }
+  } catch (_) {
+    if (context.mounted) {
+      showError(
+        context,
+        const ApiException('Unable to open support. Please try again.'),
+      );
+    }
+  }
+}
 
 String timeLabel(DateTime? time) {
   if (time == null) return '';

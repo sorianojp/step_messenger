@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../data/session.dart';
+import 'widgets.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, required this.session});
@@ -118,6 +119,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: session.forgetSession,
                       child: const Text('Use another account'),
                     ),
+                  TextButton(
+                    onPressed: () => openSupportPage(context),
+                    child: const Text('Need help? Contact support'),
+                  ),
                 ],
               ),
             ),
