@@ -233,10 +233,7 @@ void main() {
     );
     expect(find.text('Welcome to Uhoo!'), findsOneWidget);
     expect(find.text('Stay connected to your school.'), findsOneWidget);
-    expect(
-      find.textContaining('Messages, class updates'),
-      findsNothing,
-    );
+    expect(find.textContaining('Messages, class updates'), findsNothing);
     expect(find.text('uhoo.udd.edu.ph'), findsNothing);
     expect(find.byType(TextField), findsNothing);
     expect(tester.takeException(), isNull);

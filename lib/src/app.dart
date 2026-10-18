@@ -135,7 +135,11 @@ class _SessionGate extends StatelessWidget {
     builder: (context, _) {
       if (kDebugMode) {
         debugPrint(
-          '[ui] gate -> ${session.loading ? 'spinner' : session.user == null ? 'login' : 'home'} '
+          '[ui] gate -> ${session.loading
+              ? 'spinner'
+              : session.user == null
+              ? 'login'
+              : 'home'} '
           '(loading ${session.loading}, busy ${session.busy}, '
           'user ${session.user?.id}, team ${session.team?.slug})',
         );

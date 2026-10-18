@@ -187,8 +187,10 @@ class PushNotificationService {
     }
     final api = _api;
     if (!_available || api?.token == null) {
-      _trace('syncToken: skipped (available $_available, '
-          'signed in ${api?.token != null})');
+      _trace(
+        'syncToken: skipped (available $_available, '
+        'signed in ${api?.token != null})',
+      );
       return;
     }
     _syncing = true;
@@ -205,7 +207,9 @@ class PushNotificationService {
         }
       }
       final token = await FirebaseMessaging.instance.getToken();
-      _trace('syncToken: FCM token ${token == null || token.isEmpty ? 'NULL' : '${token.substring(0, 12)}…'}');
+      _trace(
+        'syncToken: FCM token ${token == null || token.isEmpty ? 'NULL' : '${token.substring(0, 12)}…'}',
+      );
       if (token == null || token.isEmpty || _api != api) return;
       await api!.request(
         'PUT',
