@@ -25,6 +25,13 @@ class RealtimeClient {
   int _attempt = 0;
   int _generation = 0;
 
+  /// Whether the socket is connected (events can arrive).
+  bool get isConnected => !_stopped && _socketId != null;
+
+  /// Whether [channel] is subscribed and will deliver events.
+  bool isReady(String channel) =>
+      isConnected && _readyChannels.contains(channel);
+
   void subscribe(String channel) {
     _channels.add(channel);
     _authorize(channel);

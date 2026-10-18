@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import '../data/api.dart';
 import '../data/models.dart';
 import '../data/session.dart';
+import '../data/polling.dart';
 import 'conversation_details.dart';
 import 'interactive_composer.dart';
 import 'message_bubble.dart';
@@ -46,6 +47,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _refreshing = false;
   Object? _error;
   Timer? _poll;
+  DateTime _lastRefresh = DateTime.now();
   Timer? _debounce;
   Timer? _typingStop;
   DateTime? _lastTypingSent;
@@ -76,7 +78,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
     });
     _poll = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (session.foreground) _load();
+      if (!session.foreground) return;
+      final live =
+          session.realtime?.isReady(
+            'private-conversations.${_conversation.id}',
+          ) ??
+          false;
+      if (PollingPolicy.shouldPoll(
+        realtimeLive: live,
+        lastRefresh: _lastRefresh,
+        now: DateTime.now(),
+      )) {
+        _load();
+      }
     });
   }
 
@@ -181,6 +195,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         if (more || reset || _messages.length <= 40) _next = page.next;
         _error = null;
       });
+      if (!more) _lastRefresh = DateTime.now();
       if (!more &&
           !_searching &&
           session.foreground &&

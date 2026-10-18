@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../data/models.dart';
 import '../data/session.dart';
+import '../data/polling.dart';
 import 'chat_screen.dart';
 import 'contacts_screen.dart';
 import 'widgets.dart';
@@ -27,6 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void>? _inflight;
   Object? _error;
   Timer? _poll;
+  DateTime _lastRefresh = DateTime.now();
   Timer? _debounce;
   StreamSubscription<Json>? _events;
   SessionController get session => widget.session;
@@ -43,7 +45,15 @@ class _HomeScreenState extends State<HomeScreen> {
     if (session.team != null) {
       _load();
       _poll = Timer.periodic(const Duration(seconds: 25), (_) {
-        if (session.foreground) {
+        if (!session.foreground) return;
+        // Polling also discovers new conversations and sends the presence
+        // heartbeat (contacts show as online for 3 minutes after the last one).
+        if (PollingPolicy.shouldPoll(
+          realtimeLive: session.realtime?.isConnected ?? false,
+          lastRefresh: _lastRefresh,
+          now: DateTime.now(),
+        )) {
+          _lastRefresh = DateTime.now();
           _load();
           _presence();
         }
