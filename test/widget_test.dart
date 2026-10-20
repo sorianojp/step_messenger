@@ -194,12 +194,12 @@ void main() {
       });
       await tester.pump();
       await tester.pump();
-      expect(find.text('Jane Teacher is typing…'), findsOneWidget);
+      expect(find.text('Jane Teacher is typing...'), findsOneWidget);
       expect(find.textContaining('Untrusted name'), findsNothing);
       await tester.pump(const Duration(seconds: 5));
-      expect(find.text('Jane Teacher is typing…'), findsNothing);
+      expect(find.text('Jane Teacher is typing...'), findsNothing);
       final composer = find.byWidgetPredicate(
-        (w) => w is TextField && w.decoration?.hintText == 'Message…',
+        (w) => w is TextField && w.decoration?.hintText == 'Type a message...',
       );
       await tester.enterText(composer, 'Hello');
       await tester.pump();
@@ -231,8 +231,8 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Welcome to Uhoo!'), findsOneWidget);
-    expect(find.text('Stay connected to your school.'), findsOneWidget);
+    expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.text('Continue with STEP'), findsOneWidget);
     expect(find.textContaining('Messages, class updates'), findsNothing);
     expect(find.text('uhoo.udd.edu.ph'), findsNothing);
     expect(find.byType(TextField), findsNothing);
@@ -280,7 +280,7 @@ void main() {
     await tester.tap(find.text('Reply'));
     await tester.pumpAndSettle();
     final composer = find.byWidgetPredicate(
-      (w) => w is TextField && w.decoration?.hintText == 'Message…',
+      (w) => w is TextField && w.decoration?.hintText == 'Type a message...',
     );
     await tester.enterText(composer, 'Thank you!');
     await tester.pump();
@@ -359,7 +359,7 @@ void main() {
       expect(find.text('UDD.EDU.PH'), findsOneWidget);
 
       final composer = find.byWidgetPredicate(
-        (w) => w is TextField && w.decoration?.hintText == 'Message…',
+        (w) => w is TextField && w.decoration?.hintText == 'Type a message...',
       );
       expect(find.byTooltip('Record voice message'), findsOneWidget);
       await tester.enterText(composer, 'Hi @ja');

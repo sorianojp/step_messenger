@@ -62,15 +62,23 @@ class _ConversationAvatarState extends State<ConversationAvatar> {
             snapshot.connectionState != ConnectionState.done) {
           return fallback;
         }
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(widget.size * .31),
-          child: Image.memory(
-            snapshot.data!,
-            width: widget.size,
-            height: widget.size,
-            fit: BoxFit.cover,
-            cacheWidth: (widget.size * 3).round(),
-            errorBuilder: (_, _, _) => fallback,
+        return SizedBox.square(
+          dimension: widget.size,
+          child: Stack(
+            children: [
+              ClipOval(
+                child: Image.memory(
+                  snapshot.data!,
+                  width: widget.size,
+                  height: widget.size,
+                  fit: BoxFit.cover,
+                  cacheWidth: (widget.size * 3).round(),
+                  errorBuilder: (_, _, _) => fallback,
+                ),
+              ),
+              if (widget.online)
+                const Positioned(right: 0, bottom: 0, child: OnlineDot()),
+            ],
           ),
         );
       },

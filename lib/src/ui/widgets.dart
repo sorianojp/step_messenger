@@ -47,6 +47,25 @@ void showError(BuildContext context, Object error) =>
       ),
     );
 
+/// The green presence dot on avatars (web: size-3, border-2 border-card).
+class OnlineDot extends StatelessWidget {
+  const OnlineDot({super.key});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 12,
+    height: 12,
+    decoration: BoxDecoration(
+      color: StepPalette.onlineFor(Theme.of(context).brightness),
+      shape: BoxShape.circle,
+      border: Border.all(
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        width: 2,
+      ),
+    ),
+  );
+}
+
 class PersonAvatar extends StatelessWidget {
   const PersonAvatar(
     this.name, {
@@ -77,40 +96,33 @@ class PersonAvatar extends StatelessWidget {
       height: size,
       child: Stack(
         children: [
+          // Web Avatar: groups fill with the brand, people sit on muted
+          // with a hairline ring.
           Container(
             width: size,
             height: size,
             decoration: BoxDecoration(
-              color: colors.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(
-                group ? size * .31 : size / 2,
-              ),
+              color: group ? colors.primary : colors.surfaceContainerHigh,
+              shape: BoxShape.circle,
+              border: group ? null : Border.all(color: colors.outlineVariant),
             ),
             alignment: Alignment.center,
             child: group
-                ? Icon(Icons.groups_rounded, size: size * .48)
+                ? Icon(
+                    Icons.group_outlined,
+                    size: size * .45,
+                    color: colors.onPrimary,
+                  )
                 : Text(
                     initials,
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      fontSize: size * .31,
+                      fontSize: size * .32,
+                      color: colors.onSurface,
                     ),
                   ),
           ),
-          if (online)
-            Positioned(
-              right: 0,
-              bottom: 0,
-              child: Container(
-                width: 13,
-                height: 13,
-                decoration: BoxDecoration(
-                  color: StepPalette.onlineFor(Theme.of(context).brightness),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: colors.surface, width: 2),
-                ),
-              ),
-            ),
+          if (online) const Positioned(right: 0, bottom: 0, child: OnlineDot()),
         ],
       ),
     );

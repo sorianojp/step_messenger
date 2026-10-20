@@ -12,6 +12,7 @@ import '../data/message_text.dart';
 import '../data/models.dart';
 import '../data/session.dart';
 import '../data/polling.dart';
+import '../theme.dart';
 import 'conversation_details.dart';
 import 'interactive_composer.dart';
 import 'message_bubble.dart';
@@ -200,9 +201,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  String get _typingLabel => _typingPeople.length == 1
-      ? '${_typingPeople.values.first} is typing…'
-      : 'Several people are typing…';
+  /// typingLabel() from the web app's lib/format.ts.
+  String get _typingLabel {
+    final names = _typingPeople.values.toList();
+    return switch (names.length) {
+      1 => '${names[0]} is typing...',
+      2 => '${names[0]} and ${names[1]} are typing...',
+      _ => 'Several people are typing...',
+    };
+  }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -612,49 +619,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _add() async {
-    final action = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.attach_file),
-              title: const Text('Photos and files'),
-              onTap: () => Navigator.pop(context, 'files'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.poll_outlined),
-              title: const Text('Create a poll'),
-              onTap: () => Navigator.pop(context, 'polls'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.event_outlined),
-              title: const Text('Create an event'),
-              onTap: () => Navigator.pop(context, 'events'),
-            ),
-          ],
+  Future<void> _interactive(String kind) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => InteractiveComposer(
+          session: session,
+          path: '$_path/$kind',
+          poll: kind == 'polls',
         ),
       ),
     );
-    if (!mounted || action == null) return;
-    if (action == 'files') {
-      await _pickFiles();
-    } else {
-      await Navigator.push(
-        context,
-        MaterialPageRoute<void>(
-          builder: (_) => InteractiveComposer(
-            session: session,
-            path: '$_path/$action',
-            poll: action == 'polls',
-          ),
-        ),
-      );
-      await _load();
-    }
+    await _load();
   }
 
   Future<void> _details() async {
@@ -688,6 +664,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         .where((p) => p.id != session.user?.id)
         .firstOrNull;
     final colors = Theme.of(context).colorScheme;
+    final online = _conversation.group
+        ? _conversation.participants.any(
+            (p) => p.id != session.user?.id && p.online,
+          )
+        : other?.online == true;
+    final pinned = _conversation.pinnedMessage;
+    final statuses = _searching
+        ? const <int, String>{}
+        : deliveryStatuses(_messages, session.user!.id, DateTime.now());
+    final names = {
+      for (final p in _conversation.participants)
+        p.id: (p.nickname?.isNotEmpty ?? false) ? p.nickname! : p.name,
+    };
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
@@ -698,9 +687,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ConversationAvatar(
                 session: session,
                 conversation: _conversation,
-                size: 39,
+                size: 40,
+                online: !_conversation.group && online,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -709,22 +699,62 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       _conversation.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
+                        fontFamily: 'Inter',
                         fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -.16,
+                        color: colors.onSurface,
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      _conversation.group
-                          ? '${_conversation.participants.length} members'
-                          : other?.online == true
-                          ? 'Active recently'
-                          : 'Uhoo!',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: colors.onSurfaceVariant,
-                      ),
+                    const SizedBox(height: 4),
+                    // Web: typing in brand, otherwise a presence dot + status.
+                    Semantics(
+                      liveRegion: _typingPeople.isNotEmpty,
+                      child: _typingPeople.isNotEmpty
+                          ? Text(
+                              _typingLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: brandText(context),
+                              ),
+                            )
+                          : Row(
+                              children: [
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: online
+                                        ? StepPalette.onlineFor(
+                                            Theme.of(context).brightness,
+                                          )
+                                        : colors.surfaceContainerHighest,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    conversationStatus(
+                                      _conversation,
+                                      session.user!.id,
+                                      DateTime.now(),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w400,
+                                      color: colors.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                     ),
                   ],
                 ),
@@ -756,7 +786,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           constraints: const BoxConstraints(maxWidth: 850),
           child: Column(
             children: [
-              const Divider(),
+              if (pinned != null && !_searching)
+                _PinnedBanner(message: pinned, onTap: _details),
               if (_searching)
                 Padding(
                   padding: const EdgeInsets.all(12),
@@ -872,6 +903,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 message: message,
                                 mine: message.sender?.id == session.user!.id,
                                 group: _conversation.group,
+                                senderName: names[message.sender?.id],
+                                status: statuses[message.id],
                                 onAction: () => _actions(message),
                                 onAttachment: (a) => _attachment(message, a),
                                 onReact: (emoji) => _react(message, emoji),
@@ -891,23 +924,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         },
                       ),
               ),
-              if (_typingPeople.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 6, 20, 12),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Semantics(
-                      liveRegion: true,
-                      child: Text(
-                        _typingLabel,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: colors.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
               const Divider(),
               if (_reply != null || _editing != null)
                 ListTile(
@@ -1002,82 +1018,113 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               SafeArea(
                 top: false,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(6, 8, 12, 10),
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
                   child: _recordingVoice
                       ? VoiceRecorderBar(onDone: _sendVoice)
-                      : Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(
-                              tooltip: 'Add attachment, poll, or event',
-                              onPressed: _sending || _editing != null
-                                  ? null
-                                  : _add,
-                              icon: const Icon(Icons.add_circle_outline),
-                            ),
-                            Expanded(
-                              child: TextField(
-                                controller: _body,
-                                enabled: !_sending,
-                                minLines: 1,
-                                maxLines: 5,
-                                textCapitalization:
-                                    TextCapitalization.sentences,
-                                decoration: const InputDecoration(
-                                  hintText: 'Message…',
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 15,
-                                    vertical: 12,
+                            // Web composer at phone width: text field and Send
+                            // on one row, the action icons underneath.
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _body,
+                                    enabled: !_sending,
+                                    minLines: 1,
+                                    maxLines: 5,
+                                    textCapitalization:
+                                        TextCapitalization.sentences,
+                                    style: const TextStyle(fontSize: 14),
+                                    decoration: const InputDecoration(
+                                      hintText: 'Type a message...',
+                                    ),
+                                    onChanged: (_) => _composerChanged(),
+                                    onTap: () =>
+                                        Future.microtask(_syncMentions),
                                   ),
                                 ),
-                                onChanged: (_) => _composerChanged(),
-                                onTap: () => Future.microtask(_syncMentions),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            SizedBox(
-                              width: 44,
-                              height: 44,
-                              child:
-                                  _body.text.trim().isEmpty &&
-                                      _files.isEmpty &&
-                                      _editing == null
-                                  ? IconButton.filledTonal(
-                                      tooltip: 'Record voice message',
-                                      onPressed: _sending
-                                          ? null
-                                          : () {
-                                              _stopTyping();
-                                              setState(
-                                                () => _recordingVoice = true,
-                                              );
-                                            },
-                                      icon: const Icon(Icons.mic_none_rounded),
-                                    )
-                                  : IconButton.filled(
-                                      tooltip: _editing != null
-                                          ? 'Save edit'
-                                          : 'Send message',
-                                      onPressed:
-                                          _sending ||
-                                              (_body.text.trim().isEmpty &&
-                                                  _files.isEmpty)
-                                          ? null
-                                          : _send,
-                                      icon: _sending
-                                          ? const SizedBox(
-                                              width: 18,
-                                              height: 18,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                              ),
-                                            )
-                                          : Icon(
-                                              _editing != null
-                                                  ? Icons.check
-                                                  : Icons.arrow_upward_rounded,
-                                            ),
+                                const SizedBox(width: 8),
+                                IconButton.filled(
+                                  tooltip: _editing != null
+                                      ? 'Save edit'
+                                      : 'Send message',
+                                  style: IconButton.styleFrom(
+                                    fixedSize: const Size(44, 44),
+                                    disabledBackgroundColor:
+                                        colors.surfaceContainerHigh,
+                                    disabledForegroundColor:
+                                        colors.onSurfaceVariant,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(
+                                        StepShape.radiusMedium,
+                                      ),
                                     ),
+                                  ),
+                                  onPressed:
+                                      _sending ||
+                                          (_body.text.trim().isEmpty &&
+                                              _files.isEmpty)
+                                      ? null
+                                      : _send,
+                                  icon: _sending
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : Icon(
+                                          _editing != null
+                                              ? Icons.check
+                                              : Icons.send_outlined,
+                                          size: 20,
+                                        ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                for (final (tooltip, icon, action)
+                                    in <(String, IconData, VoidCallback)>[
+                                      (
+                                        'Attach file',
+                                        Icons.attach_file,
+                                        _pickFiles,
+                                      ),
+                                      (
+                                        'Record voice message',
+                                        Icons.mic_none_rounded,
+                                        () {
+                                          _stopTyping();
+                                          setState(
+                                            () => _recordingVoice = true,
+                                          );
+                                        },
+                                      ),
+                                      (
+                                        'Create poll',
+                                        Icons.checklist_rounded,
+                                        () => _interactive('polls'),
+                                      ),
+                                      (
+                                        'Create event',
+                                        Icons.calendar_today_outlined,
+                                        () => _interactive('events'),
+                                      ),
+                                    ])
+                                  IconButton(
+                                    tooltip: tooltip,
+                                    onPressed: _sending || _editing != null
+                                        ? null
+                                        : action,
+                                    icon: Icon(icon, size: 20),
+                                  ),
+                              ],
                             ),
                           ],
                         ),
@@ -1112,4 +1159,91 @@ class _PendingFile {
   const _PendingFile(this.name, this.path);
   final String name;
   final String path;
+}
+
+/// The pinned message strip under the chat header, as on the web.
+class _PinnedBanner extends StatelessWidget {
+  const _PinnedBanner({required this.message, required this.onTap});
+  final ChatMessage message;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final brand = brandText(context);
+    final pinnedBy = (message.json['pinned_by'] as Map?)?['name'] as String?;
+    return ColoredBox(
+      color: colors.surfaceContainerLow,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: Material(
+          color: brand.withValues(alpha: .1),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(StepShape.radiusMedium),
+            side: BorderSide(color: brand.withValues(alpha: .2)),
+          ),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(StepShape.radiusMedium),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: colors.surfaceContainerLow,
+                      shape: BoxShape.circle,
+                      boxShadow: stepShadowSmall,
+                    ),
+                    child: Icon(
+                      Icons.push_pin_outlined,
+                      size: 16,
+                      color: brand,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Pinned message',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: brand,
+                          ),
+                        ),
+                        Text(
+                          message.preview,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: colors.onSurface,
+                          ),
+                        ),
+                        if (pinnedBy != null)
+                          Text(
+                            'Pinned by $pinnedBy',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: colors.onSurfaceVariant,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

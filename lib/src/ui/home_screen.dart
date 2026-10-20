@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../data/models.dart';
 import '../data/session.dart';
+import '../theme.dart';
 import '../data/polling.dart';
 import 'chat_screen.dart';
 import 'contacts_screen.dart';
@@ -410,103 +411,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         itemCount: conversations.length,
                         itemBuilder: (context, index) {
                           final c = conversations[index];
-                          final other = c.participants
-                              .where((p) => p.id != session.user!.id)
-                              .firstOrNull;
-                          final colors = Theme.of(context).colorScheme;
-                          return ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 8,
-                            ),
-                            leading: ConversationAvatar(
-                              session: session,
-                              conversation: c,
-                              size: 54,
-                              online: !c.group && (other?.online ?? false),
-                            ),
-                            title: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    c.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontWeight: c.unread > 0
-                                          ? FontWeight.w800
-                                          : FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                if (c.pinned)
-                                  const Padding(
-                                    padding: EdgeInsets.only(left: 4),
-                                    child: Icon(
-                                      Icons.push_pin_rounded,
-                                      size: 13,
-                                    ),
-                                  ),
-                                if (c.muted)
-                                  const Padding(
-                                    padding: EdgeInsets.only(left: 4),
-                                    child: Icon(
-                                      Icons.notifications_off_outlined,
-                                      size: 13,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            subtitle: Padding(
-                              padding: const EdgeInsets.only(top: 6),
-                              child: Text(
-                                '${c.latest?.sender?.id == session.user!.id && c.latest?.unsent == false ? 'You: ' : ''}${c.latest?.preview ?? 'No messages yet'}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: c.unread > 0
-                                      ? colors.onSurface
-                                      : colors.onSurfaceVariant,
-                                  fontWeight: c.unread > 0
-                                      ? FontWeight.w500
-                                      : FontWeight.w400,
-                                ),
-                              ),
-                            ),
-                            trailing: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  timeLabel(c.updated),
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: colors.onSurfaceVariant,
-                                  ),
-                                ),
-                                const SizedBox(height: 7),
-                                if (c.unreadMentions > 0)
-                                  Badge(
-                                    backgroundColor:
-                                        colors.surfaceContainerHighest,
-                                    textColor: colors.onSurface,
-                                    label: Semantics(
-                                      label: 'Unread mention',
-                                      child: const Text('@'),
-                                    ),
-                                  )
-                                else if (c.unread > 0)
-                                  Badge(
-                                    backgroundColor: colors.primary,
-                                    textColor: colors.onPrimary,
-                                    label: Text(
-                                      c.unread > 99 ? '99+' : '${c.unread}',
-                                    ),
-                                  )
-                                else
-                                  const SizedBox(height: 16),
-                              ],
-                            ),
+                          return _ConversationRow(
+                            session: session,
+                            conversation: c,
                             onTap: () => _open(c),
                             onLongPress: () => _conversationMenu(c),
                           );
@@ -741,11 +648,10 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Text(
               ['Messages', 'People', 'Your profile'][_tab],
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -.7,
-                color: Theme.of(context).colorScheme.primary,
+              // Web: font-heading text-2xl font-bold text-foreground.
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontSize: 24,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 4),
@@ -773,11 +679,16 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           if (_tab == 0)
-            IconButton(
+            IconButton.filled(
               tooltip: 'New message',
               onPressed: _compose,
-              color: Theme.of(context).colorScheme.primary,
-              icon: const Icon(Icons.edit_square),
+              style: IconButton.styleFrom(
+                fixedSize: const Size(40, 40),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(StepShape.radiusMedium),
+                ),
+              ),
+              icon: const Icon(Icons.edit_square, size: 20),
             ),
           const SizedBox(width: 10),
         ],
@@ -953,6 +864,179 @@ class _HomeNavigationItem extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A conversation in the inbox, laid out like ConversationRow in the web
+/// app's features/messenger/components/conversation-list.tsx.
+class _ConversationRow extends StatelessWidget {
+  const _ConversationRow({
+    required this.session,
+    required this.conversation,
+    required this.onTap,
+    required this.onLongPress,
+  });
+  final SessionController session;
+  final Conversation conversation;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = conversation;
+    final colors = Theme.of(context).colorScheme;
+    final me = session.user!.id;
+    final other = c.participants.where((p) => p.id != me).firstOrNull;
+    final draft = session.drafts[c.id]?.trim() ?? '';
+    final preview = draft.isNotEmpty
+        ? 'Draft: $draft'
+        : '${c.latest?.sender?.id == me && c.latest?.unsent == false ? 'You: ' : ''}${c.latest?.preview ?? 'No messages yet'}';
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(StepShape.radiusMedium),
+        child: InkWell(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          borderRadius: BorderRadius.circular(StepShape.radiusMedium),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ConversationAvatar(
+                  session: session,
+                  conversation: c,
+                  size: 44,
+                  online: !c.group && (other?.online ?? false),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              c.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: colors.onSurface,
+                              ),
+                            ),
+                          ),
+                          if (c.pinned)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 4),
+                              child: Icon(
+                                Icons.push_pin_outlined,
+                                size: 14,
+                                color: brandText(context),
+                                semanticLabel: 'Pinned',
+                              ),
+                            ),
+                          if (c.muted)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 4),
+                              child: Icon(
+                                Icons.notifications_off_outlined,
+                                size: 14,
+                                color: colors.onSurfaceVariant,
+                                semanticLabel: 'Muted',
+                              ),
+                            ),
+                          if (c.unread > 0) ...[
+                            const SizedBox(width: 8),
+                            _CountBadge(
+                              label: c.unread > 99 ? '99+' : '${c.unread}',
+                              semantics: '${c.unread} unread',
+                            ),
+                          ],
+                          if (c.unreadMentions > 0) ...[
+                            const SizedBox(width: 4),
+                            const _CountBadge(
+                              label: '@',
+                              semantics: 'Unread mention',
+                              muted: true,
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        preview,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        conversationStatus(c, me, DateTime.now()),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The 20px round unread (and @mention) badge from the web inbox.
+class _CountBadge extends StatelessWidget {
+  const _CountBadge({
+    required this.label,
+    required this.semantics,
+    this.muted = false,
+  });
+  final String label;
+  final String semantics;
+  final bool muted;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Semantics(
+      label: semantics,
+      excludeSemantics: true,
+      child: Container(
+        constraints: const BoxConstraints(minWidth: 20),
+        height: 20,
+        padding: const EdgeInsets.symmetric(horizontal: 5),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: muted ? colors.surfaceContainerHigh : colors.primary,
+          borderRadius: BorderRadius.circular(10),
+          border: muted
+              ? Border.all(color: colors.onSurface.withValues(alpha: .15))
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: muted ? 11 : 10,
+            fontWeight: FontWeight.w700,
+            color: muted ? colors.onSurface : colors.onPrimary,
           ),
         ),
       ),

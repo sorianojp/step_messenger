@@ -105,4 +105,90 @@ void main() {
     expect(await storage.read(key: 'step.session'), isNull);
     session.dispose();
   });
+
+  test('status and receipt labels use the web app wording', () {
+    final now = DateTime(2026, 10, 20, 12);
+    expect(
+      relativeLastSeen(now.subtract(const Duration(seconds: 20)), now),
+      'just now',
+    );
+    expect(
+      relativeLastSeen(now.subtract(const Duration(minutes: 5)), now),
+      '5 min ago',
+    );
+    expect(
+      relativeLastSeen(now.subtract(const Duration(hours: 1)), now),
+      '1 hour ago',
+    );
+    expect(
+      seenLabel(now.subtract(const Duration(minutes: 1)), now),
+      'Seen 1 Minute Ago',
+    );
+    expect(
+      seenLabel(now.subtract(const Duration(days: 3)), now),
+      'Seen 3 Days Ago',
+    );
+
+    final group = Conversation({
+      'type': 'group',
+      'participants': [
+        {'id': 1, 'name': 'Me'},
+        {'id': 2, 'name': 'Ana'},
+        {'id': 3, 'name': 'Ben'},
+      ],
+    });
+    expect(conversationStatus(group, 1, DateTime.now()), '3 members');
+    final direct = Conversation({
+      'type': 'direct',
+      'participants': [
+        {'id': 1, 'name': 'Me'},
+        {
+          'id': 2,
+          'name': 'Ana',
+          'last_seen_at': DateTime.now().toUtc().toIso8601String(),
+        },
+      ],
+    });
+    expect(conversationStatus(direct, 1, DateTime.now()), 'Active now');
+
+    Json own(
+      int id, {
+      List<Json> read = const [],
+      List<Json> delivered = const [],
+    }) => {
+      'id': id,
+      'sender': {'id': 1, 'name': 'Me'},
+      'read_by': read,
+      'delivered_to': delivered,
+    };
+    final statuses = deliveryStatuses(
+      [
+        ChatMessage(own(9)),
+        ChatMessage(
+          own(
+            8,
+            delivered: [
+              {'id': 2},
+            ],
+          ),
+        ),
+        ChatMessage(
+          own(
+            7,
+            read: [
+              {
+                'id': 2,
+                'read_at': now
+                    .subtract(const Duration(minutes: 2))
+                    .toIso8601String(),
+              },
+            ],
+          ),
+        ),
+      ],
+      1,
+      now,
+    );
+    expect(statuses, {9: 'Sent', 8: 'Delivered', 7: 'Seen 2 Minutes Ago'});
+  });
 }
