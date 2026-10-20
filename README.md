@@ -30,19 +30,27 @@ Reverb configuration. Existing web authentication remains available.
   expire after 30 days and are held in platform secure storage.
 - Session restoration, workspace switching, and device-specific logout.
 - Paginated inbox, unread and group filters, search within loaded
-  conversations, pinning, archive/restore, and notification preferences.
+  conversations, pinning, archive/restore/delete, unread-mention badges, and
+  notification preferences.
 - Searchable school directory, direct conversations, and group creation.
 - Paginated messages and server-side message search; send, reply, edit,
-  unsend, forward, react, and pin messages. Failed sends keep the draft.
-- Up to five files per message, 20 MB each; authenticated image viewing and
-  opening downloaded files in a device application. Temporary attachment
+  unsend, forward, react, and pin messages. Failed sends keep the draft, and
+  each conversation keeps its unsent draft until sign-out.
+- @mention suggestions (including @everyone where allowed), highlighted
+  mentions, tappable links, and link preview cards.
+- Voice messages up to five minutes (AAC), with in-chat playback of voice
+  notes and audio from the web app.
+- Up to five files per message, 20 MB each; inline image previews,
+  full-screen image viewing, and opening downloaded files in a device
+  application. Temporary attachment
   copies are removed on sign-out when the OS permits it.
 - Poll creation and voting, event creation and RSVPs.
 - Group renaming, adding/removing members, and leaving groups, subject to
   Laravel's existing permissions.
 - Reverb updates for subscribed conversations, automatic
   reconnection, and foreground HTTP refresh as a fallback. Polling also
-  discovers newly created conversations. Read receipts, recent activity, and live typing shared with the web app.
+  discovers newly created conversations. Delivered and read receipts, recent
+  activity, and live typing shared with the web app.
 - System, light, and dark appearance; loading, empty, and retry states.
 
 ## Verify and build

@@ -26,6 +26,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Record voice messages to send in your conversations.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Connect to your school's Uhoo! server on your local network.</string>
 	<key>NSAppTransportSecurity</key>

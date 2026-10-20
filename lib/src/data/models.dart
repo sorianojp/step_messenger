@@ -58,6 +58,7 @@ class Conversation {
       ? ChatMessage(Map<String, dynamic>.from(json['pinned_message']))
       : null;
   int get unread => json['unread_count'] as int? ?? 0;
+  int get unreadMentions => json['unread_mentions_count'] as int? ?? 0;
   bool get pinned => json['pinned_at'] != null;
   bool get archived => json['archived_at'] != null;
   bool get muted => json['notification_preference'] == 'muted';
@@ -89,14 +90,39 @@ class ChatMessage {
   bool get read => records(json['read_by']).any((r) => r['id'] != sender?.id);
   bool get delivered =>
       records(json['delivered_to']).any((r) => r['id'] != sender?.id);
-  String get preview => unsent
-      ? 'Message unsent'
-      : body.isNotEmpty
-      ? body
-      : attachments.isNotEmpty
-      ? 'Sent an attachment'
-      : 'Start a conversation';
+  bool get voice => type == 'voice';
+  bool get mentionsMe => json['mentions_me'] == true;
+  List<Json> get linkPreviews =>
+      records((json['metadata'] as Map?)?['link_previews']);
+
+  /// Same wording as messagePreview() in the web app's lib/messages.ts.
+  String get preview {
+    if (unsent) {
+      return sender == null
+          ? 'Message unsent'
+          : '${sender!.name} unsent a message';
+    }
+    if (poll != null) return 'Poll: ${poll!['question']}';
+    if (event != null) return 'Event: ${event!['title']}';
+    if (voice) return 'Voice message';
+    if (body.isNotEmpty) return body;
+    if (attachments.length == 1) {
+      return 'Attachment: ${attachments.first['name']}';
+    }
+    if (attachments.length > 1) return '${attachments.length} attachments';
+    return 'No messages yet';
+  }
 }
+
+bool isAudioAttachment(Json attachment, {bool voice = false}) {
+  final mime = attachment['mime_type'] as String? ?? '';
+  return attachment['preview_url'] != null &&
+      (mime.startsWith('audio/') || voice && mime.startsWith('video/'));
+}
+
+bool isImageAttachment(Json attachment) =>
+    attachment['preview_url'] != null &&
+    (attachment['mime_type'] as String? ?? '').startsWith('image/');
 
 class PageData<T> {
   PageData(this.items, this.next);

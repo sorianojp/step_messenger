@@ -8,12 +8,14 @@ import 'attachment_viewer.dart';
 import 'conversation_avatar.dart';
 import 'package:path_provider/path_provider.dart';
 import '../data/api.dart';
+import '../data/message_text.dart';
 import '../data/models.dart';
 import '../data/session.dart';
 import '../data/polling.dart';
 import 'conversation_details.dart';
 import 'interactive_composer.dart';
 import 'message_bubble.dart';
+import 'voice_recorder.dart';
 import 'widgets.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -45,6 +47,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _sending = false;
   bool _searching = false;
   bool _refreshing = false;
+  bool _recordingVoice = false;
+  List<MentionOption> _mentionOptions = [];
+  final Set<int> _deliveredIds = {};
   Object? _error;
   Timer? _poll;
   DateTime _lastRefresh = DateTime.now();
@@ -62,6 +67,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _body.text = session.drafts[_conversation.id] ?? '';
     _load();
     session.realtime?.subscribe('private-conversations.${_conversation.id}');
     session.realtime?.subscribe('presence-conversations.${_conversation.id}');
@@ -123,7 +129,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _composerChanged() {
-    setState(() {});
+    if (_editing == null) {
+      if (_body.text.isEmpty) {
+        session.drafts.remove(_conversation.id);
+      } else {
+        session.drafts[_conversation.id] = _body.text;
+      }
+    }
+    _syncMentions();
     if (_body.text.trim().isEmpty || _editing != null) {
       _stopTyping();
       return;
@@ -139,6 +152,41 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
     _typingStop?.cancel();
     _typingStop = Timer(const Duration(seconds: 2), _stopTyping);
+  }
+
+  MentionRange? get _mentionRange {
+    final cursor = _body.selection.baseOffset;
+    return mentionRangeAtCursor(
+      _body.text,
+      cursor < 0 ? _body.text.length : cursor,
+    );
+  }
+
+  void _syncMentions() {
+    final range = _mentionRange;
+    setState(() {
+      _mentionOptions = range == null
+          ? []
+          : mentionOptions(
+              participants: _conversation.participants.map(
+                (p) => (id: p.id, name: p.name, role: p.role),
+              ),
+              currentUserId: session.user!.id,
+              canMentionEveryone: _conversation.can('can_mention_everyone'),
+              query: range.query,
+            ).take(6).toList();
+    });
+  }
+
+  void _insertMention(MentionOption option) {
+    final range = _mentionRange;
+    if (range == null) return;
+    final next = insertMention(_body.text, range, option.token);
+    _body.value = TextEditingValue(
+      text: next.text,
+      selection: TextSelection.collapsed(offset: next.cursor),
+    );
+    _composerChanged();
   }
 
   void _stopTyping() {
@@ -196,6 +244,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _error = null;
       });
       if (!more) _lastRefresh = DateTime.now();
+      _markDelivered(page.items);
       if (!more &&
           !_searching &&
           session.foreground &&
@@ -217,6 +266,68 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       if (mounted && generation == _generation) {
         setState(() => _loading = false);
       }
+    }
+  }
+
+  /// Tells senders their messages reached this device, as the web app does.
+  void _markDelivered(List<ChatMessage> messages) {
+    final me = session.user?.id;
+    for (final message in messages) {
+      final sender = message.sender?.id;
+      if (sender == null ||
+          sender == me ||
+          message.unsent ||
+          records(message.json['delivered_to']).any((r) => r['id'] == me) ||
+          !_deliveredIds.add(message.id)) {
+        continue;
+      }
+      session.api
+          .request('PATCH', '$_path/messages/${message.id}/delivered')
+          .then<void>(
+            (_) {},
+            onError: (Object _) => _deliveredIds.remove(message.id),
+          );
+    }
+  }
+
+  void _showSent(ChatMessage message) {
+    setState(() {
+      _messages = {
+        for (final m in _messages) m.id: m,
+        message.id: message,
+      }.values.toList()..sort((a, b) => b.id.compareTo(a.id));
+      _readId = message.id;
+    });
+    if (_scroll.hasClients) {
+      _scroll.animateTo(
+        0,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  Future<void> _sendVoice(File? file) async {
+    setState(() => _recordingVoice = false);
+    if (file == null) return;
+    setState(() => _sending = true);
+    try {
+      final result = await session.api.upload(
+        '$_path/messages',
+        {
+          'type': 'voice',
+          if (_reply != null) 'reply_to_message_id': '${_reply!.id}',
+        },
+        [file.path],
+      );
+      if (!mounted) return;
+      setState(() => _reply = null);
+      _showSent(ChatMessage(result['data'] as Json));
+    } catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _sending = false);
+      file.delete().ignore();
     }
   }
 
@@ -257,17 +368,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
       if (!mounted) return;
       final message = ChatMessage(result['data'] as Json);
+      final wasEditing = _editing != null;
       setState(() {
-        _messages = {
-          for (final m in _messages) m.id: m,
-          message.id: message,
-        }.values.toList()..sort((a, b) => b.id.compareTo(a.id));
-        _body.clear();
+        _body.text = wasEditing ? session.drafts[_conversation.id] ?? '' : '';
         _files = [];
         _reply = null;
         _editing = null;
-        _readId = message.id;
+        _mentionOptions = [];
       });
+      if (!wasEditing) session.drafts.remove(_conversation.id);
       // Reset search so the newly sent message is visible in its conversation.
       if (_searching) {
         setState(() {
@@ -276,13 +385,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         });
         await _load(reset: true);
       }
-      if (_scroll.hasClients) {
-        _scroll.animateTo(
-          0,
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOut,
-        );
-      }
+      if (mounted) _showSent(message);
     } catch (e) {
       if (mounted) showError(context, e);
     } finally {
@@ -764,6 +867,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                   ),
                                 ),
                               MessageBubble(
+                                session: session,
+                                conversationPath: _path,
                                 message: message,
                                 mine: message.sender?.id == session.user!.id,
                                 group: _conversation.group,
@@ -827,7 +932,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     onPressed: _sending
                         ? null
                         : () => setState(() {
-                            if (_editing != null) _body.clear();
+                            if (_editing != null) {
+                              _body.text =
+                                  session.drafts[_conversation.id] ?? '';
+                            }
                             _editing = null;
                             _reply = null;
                           }),
@@ -861,65 +969,118 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     ],
                   ),
                 ),
+              if (_mentionOptions.isNotEmpty && !_recordingVoice)
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 220),
+                  child: ListView(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    children: [
+                      for (final option in _mentionOptions)
+                        ListTile(
+                          dense: true,
+                          leading: option.token == '@everyone'
+                              ? const CircleAvatar(
+                                  radius: 14,
+                                  child: Icon(
+                                    Icons.campaign_outlined,
+                                    size: 16,
+                                  ),
+                                )
+                              : PersonAvatar(option.label, size: 28),
+                          title: Text(option.label),
+                          subtitle: Text(
+                            option.description,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onTap: () => _insertMention(option),
+                        ),
+                    ],
+                  ),
+                ),
               SafeArea(
                 top: false,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(6, 8, 12, 10),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      IconButton(
-                        tooltip: 'Add attachment, poll, or event',
-                        onPressed: _sending || _editing != null ? null : _add,
-                        icon: const Icon(Icons.add_circle_outline),
-                      ),
-                      Expanded(
-                        child: TextField(
-                          controller: _body,
-                          enabled: !_sending,
-                          minLines: 1,
-                          maxLines: 5,
-                          textCapitalization: TextCapitalization.sentences,
-                          decoration: const InputDecoration(
-                            hintText: 'Message…',
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 15,
-                              vertical: 12,
+                  child: _recordingVoice
+                      ? VoiceRecorderBar(onDone: _sendVoice)
+                      : Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            IconButton(
+                              tooltip: 'Add attachment, poll, or event',
+                              onPressed: _sending || _editing != null
+                                  ? null
+                                  : _add,
+                              icon: const Icon(Icons.add_circle_outline),
                             ),
-                          ),
-                          onChanged: (_) => _composerChanged(),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: IconButton.filled(
-                          tooltip: _editing != null
-                              ? 'Save edit'
-                              : 'Send message',
-                          onPressed:
-                              _sending ||
-                                  (_body.text.trim().isEmpty && _files.isEmpty)
-                              ? null
-                              : _send,
-                          icon: _sending
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
+                            Expanded(
+                              child: TextField(
+                                controller: _body,
+                                enabled: !_sending,
+                                minLines: 1,
+                                maxLines: 5,
+                                textCapitalization:
+                                    TextCapitalization.sentences,
+                                decoration: const InputDecoration(
+                                  hintText: 'Message…',
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 15,
+                                    vertical: 12,
                                   ),
-                                )
-                              : Icon(
-                                  _editing != null
-                                      ? Icons.check
-                                      : Icons.arrow_upward_rounded,
                                 ),
+                                onChanged: (_) => _composerChanged(),
+                                onTap: () => Future.microtask(_syncMentions),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 44,
+                              height: 44,
+                              child:
+                                  _body.text.trim().isEmpty &&
+                                      _files.isEmpty &&
+                                      _editing == null
+                                  ? IconButton.filledTonal(
+                                      tooltip: 'Record voice message',
+                                      onPressed: _sending
+                                          ? null
+                                          : () {
+                                              _stopTyping();
+                                              setState(
+                                                () => _recordingVoice = true,
+                                              );
+                                            },
+                                      icon: const Icon(Icons.mic_none_rounded),
+                                    )
+                                  : IconButton.filled(
+                                      tooltip: _editing != null
+                                          ? 'Save edit'
+                                          : 'Send message',
+                                      onPressed:
+                                          _sending ||
+                                              (_body.text.trim().isEmpty &&
+                                                  _files.isEmpty)
+                                          ? null
+                                          : _send,
+                                      icon: _sending
+                                          ? const SizedBox(
+                                              width: 18,
+                                              height: 18,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            )
+                                          : Icon(
+                                              _editing != null
+                                                  ? Icons.check
+                                                  : Icons.arrow_upward_rounded,
+                                            ),
+                                    ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
                 ),
               ),
             ],

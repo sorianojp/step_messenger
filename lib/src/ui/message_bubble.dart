@@ -1,12 +1,18 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../data/message_text.dart';
 import '../data/models.dart';
+import '../data/session.dart';
 import '../theme.dart';
+import 'message_media.dart';
 import 'widgets.dart';
 
 class MessageBubble extends StatelessWidget {
   const MessageBubble({
     super.key,
+    required this.session,
+    required this.conversationPath,
     required this.message,
     required this.mine,
     required this.group,
@@ -16,6 +22,8 @@ class MessageBubble extends StatelessWidget {
     required this.onRsvp,
     required this.onReact,
   });
+  final SessionController session;
+  final String conversationPath;
   final ChatMessage message;
   final bool mine;
   final bool group;
@@ -200,67 +208,96 @@ class MessageBubble extends StatelessWidget {
                             else if (message.event != null)
                               _event(context)
                             else if (message.body.isNotEmpty)
-                              Text(
-                                message.body,
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  height: 1.5,
-                                ),
+                              _MessageText(
+                                text: message.body,
+                                color: ink,
+                                mentionBackground: inkChip,
                               ),
+                            if (!message.unsent)
+                              for (final preview in message.linkPreviews)
+                                LinkPreviewCard(
+                                  preview: preview,
+                                  ink: ink,
+                                  inkMuted: inkMuted,
+                                  background: inkChip,
+                                ),
                             for (final attachment in message.attachments)
                               Padding(
                                 padding: EdgeInsets.only(
                                   top: message.body.isNotEmpty ? 10 : 0,
                                 ),
-                                child: InkWell(
-                                  onTap: () => onAttachment(attachment),
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 7,
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          (attachment['mime_type'] as String? ??
-                                                      '')
-                                                  .startsWith('image/')
-                                              ? Icons.image_outlined
-                                              : Icons
-                                                    .insert_drive_file_outlined,
-                                          size: 28,
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Flexible(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
+                                child:
+                                    isAudioAttachment(
+                                      attachment,
+                                      voice: message.voice,
+                                    )
+                                    ? VoiceNotePlayer(
+                                        session: session,
+                                        path: _previewPath(attachment),
+                                        cacheKey:
+                                            '${message.id}_${attachment['id']}',
+                                        color: ink,
+                                        mutedColor: inkMuted,
+                                      )
+                                    : isImageAttachment(attachment)
+                                    ? AttachmentImage(
+                                        session: session,
+                                        path: _previewPath(attachment),
+                                        onTap: () => onAttachment(attachment),
+                                      )
+                                    : InkWell(
+                                        onTap: () => onAttachment(attachment),
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 7,
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              Text(
-                                                attachment['name'] as String,
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 13,
-                                                ),
+                                              Icon(
+                                                (attachment['mime_type']
+                                                                as String? ??
+                                                            '')
+                                                        .startsWith('image/')
+                                                    ? Icons.image_outlined
+                                                    : Icons
+                                                          .insert_drive_file_outlined,
+                                                size: 28,
                                               ),
-                                              const SizedBox(height: 3),
-                                              Text(
-                                                '${((attachment['size'] as num? ?? 0) / 1024).round()} KB · Tap to open',
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: inkMuted,
+                                              const SizedBox(width: 10),
+                                              Flexible(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      attachment['name']
+                                                          as String,
+                                                      maxLines: 2,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        fontSize: 13,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 3),
+                                                    Text(
+                                                      '${((attachment['size'] as num? ?? 0) / 1024).round()} KB · Tap to open',
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        color: inkMuted,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ),
                                             ],
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
+                                      ),
                               ),
                           ],
                         ),
@@ -341,6 +378,9 @@ class MessageBubble extends StatelessWidget {
       ),
     );
   }
+
+  String _previewPath(Json attachment) =>
+      '$conversationPath/messages/${message.id}/attachments/${attachment['id']}/preview';
 
   Widget _poll(BuildContext context) {
     final poll = message.poll!;
@@ -517,5 +557,72 @@ class MessageBubble extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+/// Message body with tappable links and highlighted @mentions.
+class _MessageText extends StatefulWidget {
+  const _MessageText({
+    required this.text,
+    required this.color,
+    required this.mentionBackground,
+  });
+  final String text;
+  final Color color;
+  final Color mentionBackground;
+
+  @override
+  State<_MessageText> createState() => _MessageTextState();
+}
+
+class _MessageTextState extends State<_MessageText> {
+  final _recognizers = <TapGestureRecognizer>[];
+
+  void _clear() {
+    for (final recognizer in _recognizers) {
+      recognizer.dispose();
+    }
+    _recognizers.clear();
+  }
+
+  TapGestureRecognizer _tap(String href) {
+    final recognizer = TapGestureRecognizer()
+      ..onTap = () => openExternalLink(context, href);
+    _recognizers.add(recognizer);
+    return recognizer;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _clear();
+    return Text.rich(
+      TextSpan(
+        style: TextStyle(fontSize: 15, height: 1.5, color: widget.color),
+        children: [
+          for (final part in messageTextParts(widget.text))
+            switch (part.type) {
+              TextPartType.link => TextSpan(
+                text: part.text,
+                style: const TextStyle(decoration: TextDecoration.underline),
+                recognizer: _tap(part.href!),
+              ),
+              TextPartType.mention => TextSpan(
+                text: part.text,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  backgroundColor: widget.mentionBackground,
+                ),
+              ),
+              TextPartType.text => TextSpan(text: part.text),
+            },
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _clear();
+    super.dispose();
   }
 }

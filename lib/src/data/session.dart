@@ -46,6 +46,12 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
   String? error;
   String get baseUrl => officialBaseUrl;
   ThemeMode themeMode = ThemeMode.system;
+
+  /// Unsent composer text per conversation, kept until sign-out.
+  final Map<int, String> drafts = {};
+
+  /// Recently viewed attachment previews, so scrolling back is instant.
+  final Map<String, Future<Uint8List>> previews = {};
   String get teamPath => '/api/teams/${Uri.encodeComponent(team!.slug)}';
   bool get hasSavedSession => _api?.token != null;
 
@@ -244,6 +250,8 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
     user = null;
     teams = [];
     team = null;
+    drafts.clear();
+    previews.clear();
     await _storage.delete(key: 'step.session');
     try {
       final temp = await getTemporaryDirectory();

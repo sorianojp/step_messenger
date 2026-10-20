@@ -304,4 +304,87 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     session.dispose();
   });
+
+  testWidgets(
+    'chat marks messages delivered, shows link previews and suggests mentions',
+    (tester) async {
+      final delivered = <String>[];
+      final linked = message(7, 'Read https://udd.edu.ph/notes please')
+        ..['metadata'] = {
+          'link_previews': [
+            {
+              'url': 'https://udd.edu.ph/notes',
+              'host': 'udd.edu.ph',
+              'title': 'Class notes',
+              'description': null,
+              'image_url': null,
+            },
+          ],
+        };
+      final group = conversation()
+        ..['type'] = 'group'
+        ..['display_name'] = 'Science Club'
+        ..['latest_message'] = linked
+        ..['permissions'] = {'can_mention_everyone': true};
+      final client = ApiClient(
+        baseUrl: 'https://school.test',
+        client: MockClient((request) async {
+          final path = request.url.path;
+          if (path.endsWith('/delivered')) {
+            delivered.add(path);
+            return http.Response('{"data":{"delivered":true}}', 200);
+          }
+          if (path.endsWith('/presence') || path.endsWith('/read')) {
+            return http.Response('{"data":{}}', 200);
+          }
+          if (path.endsWith('/conversations')) {
+            return http.Response(jsonEncode(page([group])), 200);
+          }
+          if (path.endsWith('/messages') && request.method == 'GET') {
+            return http.Response(jsonEncode(page([linked])), 200);
+          }
+          return http.Response('{"message":"Unexpected request"}', 404);
+        }),
+      );
+      final session = TestSession(client);
+      await tester.pumpWidget(UhooApp(session: session));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Science Club').first);
+      await tester.pumpAndSettle();
+
+      expect(delivered, [
+        '/api/teams/school/conversations/9/messages/7/delivered',
+      ]);
+      expect(find.text('Class notes'), findsOneWidget);
+      expect(find.text('UDD.EDU.PH'), findsOneWidget);
+
+      final composer = find.byWidgetPredicate(
+        (w) => w is TextField && w.decoration?.hintText == 'Message…',
+      );
+      expect(find.byTooltip('Record voice message'), findsOneWidget);
+      await tester.enterText(composer, 'Hi @ja');
+      await tester.pump();
+      expect(find.text('Everyone'), findsNothing);
+      await tester.tap(find.text('Jane Teacher').last);
+      await tester.pump();
+      expect(
+        (tester.widget(composer) as TextField).controller!.text,
+        'Hi @JaneTeacher ',
+      );
+      expect(find.byTooltip('Send message'), findsOneWidget);
+
+      // The unsent text survives leaving and reopening the conversation.
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Science Club').first);
+      await tester.pumpAndSettle();
+      expect(
+        (tester.widget(composer) as TextField).controller!.text,
+        'Hi @JaneTeacher ',
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      session.dispose();
+    },
+  );
 }

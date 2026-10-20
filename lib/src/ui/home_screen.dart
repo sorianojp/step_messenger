@@ -209,11 +209,21 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               onTap: () => Navigator.pop(context, 'archive'),
             ),
+            if (conversation.archived)
+              ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: const Text('Delete conversation'),
+                onTap: () => Navigator.pop(context, 'delete'),
+              ),
           ],
         ),
       ),
     );
-    if (action == null) return;
+    if (action == null || !mounted) return;
+    if (action == 'delete') {
+      await _delete(conversation);
+      return;
+    }
     final fields = {
       'pin': {'pinned': !conversation.pinned},
       'mute': {'muted': !conversation.muted},
@@ -244,6 +254,33 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       });
       await _load(reset: true);
+    } catch (e) {
+      if (mounted) showError(context, e);
+    }
+  }
+
+  /// Removes an archived conversation from this account, as on the web.
+  Future<void> _delete(Conversation conversation) async {
+    if (!await confirmAction(
+      context,
+      'Delete conversation?',
+      'This removes ${conversation.name} from your archive. Other members keep their copy.',
+      'Delete',
+    )) {
+      return;
+    }
+    try {
+      await session.api.request(
+        'DELETE',
+        '${session.teamPath}/conversations/${conversation.id}',
+      );
+      if (!mounted) return;
+      session.drafts.remove(conversation.id);
+      setState(() {
+        _conversations = _conversations
+            .where((c) => c.id != conversation.id)
+            .toList();
+      });
     } catch (e) {
       if (mounted) showError(context, e);
     }
@@ -422,7 +459,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             subtitle: Padding(
                               padding: const EdgeInsets.only(top: 6),
                               child: Text(
-                                '${c.latest?.sender?.id == session.user!.id ? 'You: ' : ''}${c.latest?.preview ?? 'Say hello 👋'}',
+                                '${c.latest?.sender?.id == session.user!.id && c.latest?.unsent == false ? 'You: ' : ''}${c.latest?.preview ?? 'No messages yet'}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -447,7 +484,17 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 7),
-                                if (c.unread > 0)
+                                if (c.unreadMentions > 0)
+                                  Badge(
+                                    backgroundColor:
+                                        colors.surfaceContainerHighest,
+                                    textColor: colors.onSurface,
+                                    label: Semantics(
+                                      label: 'Unread mention',
+                                      child: const Text('@'),
+                                    ),
+                                  )
+                                else if (c.unread > 0)
                                   Badge(
                                     backgroundColor: colors.primary,
                                     textColor: colors.onPrimary,
