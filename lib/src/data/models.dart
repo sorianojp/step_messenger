@@ -16,6 +16,8 @@ class Person {
   Department? get department => json['department'] is Map
       ? Department(Map<String, dynamic>.from(json['department']))
       : null;
+  List<String> get stepRoles =>
+      (json['step_roles'] as List? ?? []).whereType<String>().toList();
   DateTime? get lastSeen => date(json['last_seen_at']);
   bool get online =>
       lastSeen != null && DateTime.now().difference(lastSeen!).inMinutes < 3;

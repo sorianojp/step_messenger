@@ -7,6 +7,7 @@ import '../data/session.dart';
 import '../data/polling.dart';
 import 'chat_screen.dart';
 import 'contacts_screen.dart';
+import 'message_media.dart';
 import 'widgets.dart';
 import 'conversation_avatar.dart';
 
@@ -567,6 +568,30 @@ class _HomeScreenState extends State<HomeScreen> {
           session.user!.department?.label ?? 'Not assigned in STEP',
         ),
       ),
+      const Divider(),
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.badge_outlined),
+        title: const Text('STEP roles'),
+        subtitle: Text(
+          session.user!.stepRoles.isEmpty
+              ? 'No roles synchronized yet'
+              : session.user!.stepRoles.join(', '),
+        ),
+      ),
+      if (session.stepAccountUrl != null) ...[
+        const Divider(),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.manage_accounts_outlined),
+          title: const Text('Manage account in STEP'),
+          subtitle: const Text(
+            'Change your name, email, password, or role. Uhoo! refreshes them on your next sign-in.',
+          ),
+          trailing: const Icon(Icons.open_in_new, size: 18),
+          onTap: () => openExternalLink(context, session.stepAccountUrl!),
+        ),
+      ],
       const Divider(),
       ListTile(
         contentPadding: EdgeInsets.zero,

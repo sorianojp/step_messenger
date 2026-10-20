@@ -40,6 +40,9 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
   Team? team;
   RealtimeClient? realtime;
   Json? _realtimeConfig;
+
+  /// Where users change their name, email, password or roles.
+  String? stepAccountUrl;
   bool loading = true;
   bool busy = false;
   bool foreground = true;
@@ -192,6 +195,7 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
     user = Person(data['user'] as Json);
     teams = records(data['teams']).map(Team.new).toList();
     _realtimeConfig = data['realtime'] as Json?;
+    stepAccountUrl = data['step_account_url'] as String?;
     final selected = preferredTeam ?? user!.json['current_team_id'];
     team =
         teams.where((t) => t.id == selected).firstOrNull ?? teams.firstOrNull;
