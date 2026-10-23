@@ -8,6 +8,7 @@ import 'package:http/testing.dart';
 import 'package:step_messenger/src/app.dart';
 import 'package:step_messenger/src/ui/contacts_screen.dart';
 import 'package:step_messenger/src/ui/conversation_details.dart';
+import 'package:step_messenger/src/ui/saved_screen.dart';
 import 'package:step_messenger/src/data/api.dart';
 import 'package:step_messenger/src/data/models.dart';
 import 'package:step_messenger/src/data/realtime.dart';
@@ -545,6 +546,94 @@ void main() {
     await tester.pumpAndSettle();
     expect(posts, ['POST']);
     expect(opened?.id, 31);
+    await tester.pumpWidget(const SizedBox());
+    session.dispose();
+  });
+
+  testWidgets('saving a message and viewing who has seen it', (tester) async {
+    final writes = <String>[];
+    final mine = message(9, 'Quiz on Friday', sender: 1)
+      ..['read_by'] = [
+        {'id': 2, 'name': 'Jane Teacher', 'read_at': '2026-10-23T03:00:00Z'},
+      ];
+    final client = ApiClient(
+      baseUrl: 'https://school.test',
+      client: MockClient((request) async {
+        final path = request.url.path;
+        if (path.endsWith('/save')) {
+          writes.add('${request.method} $path');
+          return http.Response('{"data":{"saved":true}}', 200);
+        }
+        if (path.endsWith('/conversations')) {
+          return http.Response(jsonEncode(page([conversation()])), 200);
+        }
+        if (path.endsWith('/messages') && request.method == 'GET') {
+          return http.Response(jsonEncode(page([mine])), 200);
+        }
+        return http.Response('{"data":{}}', 200);
+      }),
+    );
+    final session = TestSession(client);
+    await tester.pumpWidget(UhooApp(session: session));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Jane Teacher').first);
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('Quiz on Friday'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save message'));
+    await tester.pumpAndSettle();
+    expect(writes, ['PUT /api/teams/school/conversations/9/messages/9/save']);
+
+    await tester.longPress(find.text('Quiz on Friday'));
+    await tester.pumpAndSettle();
+    expect(find.text('Remove from saved'), findsOneWidget);
+    await tester.ensureVisible(find.text('Message info'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Message info'));
+    await tester.pumpAndSettle();
+    expect(find.text('Seen by · 1'), findsOneWidget);
+    expect(find.text('Jane Teacher'), findsWidgets);
+    await tester.pumpWidget(const SizedBox());
+    session.dispose();
+  });
+
+  testWidgets('the Saved screen lists saved messages and opens their chat', (
+    tester,
+  ) async {
+    final client = ApiClient(
+      baseUrl: 'https://school.test',
+      client: MockClient(
+        (request) async => http.Response(
+          jsonEncode(
+            page([
+              {
+                'saved_at': '2026-10-23T03:00:00Z',
+                'conversation': {
+                  'id': 9,
+                  'type': 'group',
+                  'display_name': 'Science Club',
+                },
+                'message': message(4, 'Bring lab gowns'),
+              },
+            ]),
+          ),
+          200,
+        ),
+      ),
+    );
+    final session = TestSession(client);
+    int? opened;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SavedScreen(session: session, onOpen: (id) async => opened = id),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Science Club'), findsOneWidget);
+    await tester.tap(find.text('Bring lab gowns'));
+    await tester.pumpAndSettle();
+    expect(opened, 9);
     await tester.pumpWidget(const SizedBox());
     session.dispose();
   });

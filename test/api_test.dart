@@ -191,4 +191,31 @@ void main() {
     );
     expect(statuses, {9: 'Sent', 8: 'Delivered', 7: 'Seen 2 Minutes Ago'});
   });
+
+  test('message receipts group seen, delivered and pending like the web', () {
+    final chat = Conversation({
+      'type': 'group',
+      'participants': [
+        {'id': 1, 'name': 'Me'},
+        {'id': 2, 'name': 'Ana', 'nickname': 'Annie'},
+        {'id': 3, 'name': 'Ben'},
+        {'id': 4, 'name': 'Cara'},
+      ],
+    });
+    final message = ChatMessage({
+      'id': 7,
+      'sender': {'id': 1, 'name': 'Me'},
+      'read_by': [
+        {'id': 2, 'name': 'Ana', 'read_at': '2026-10-23T03:00:00Z'},
+      ],
+      'delivered_to': [
+        {'id': 2, 'name': 'Ana', 'delivered_at': '2026-10-23T02:59:00Z'},
+        {'id': 3, 'name': 'Ben', 'delivered_at': '2026-10-23T02:58:00Z'},
+      ],
+    });
+    final receipts = messageReceipts(message, chat);
+    expect(receipts.seen.map((r) => r.name), ['Annie']);
+    expect(receipts.delivered.map((r) => r.name), ['Ben']);
+    expect(receipts.pending.map((r) => r.name), ['Cara']);
+  });
 }

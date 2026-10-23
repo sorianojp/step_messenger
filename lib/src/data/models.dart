@@ -93,6 +93,7 @@ class ChatMessage {
   bool get read => records(json['read_by']).any((r) => r['id'] != sender?.id);
   bool get delivered =>
       records(json['delivered_to']).any((r) => r['id'] != sender?.id);
+  bool get saved => json['saved_by_me'] == true;
   bool get voice => type == 'voice';
   bool get mentionsMe => json['mentions_me'] == true;
   List<Json> get linkPreviews =>
@@ -225,4 +226,48 @@ String conversationStatus(Conversation c, int currentUserId, DateTime now) {
   return online == 0
       ? '${c.participants.length} members'
       : '$online active now';
+}
+
+class Receipt {
+  const Receipt(this.id, this.name, [this.at]);
+  final int id;
+  final String name;
+  final DateTime? at;
+}
+
+/// messageReceipts() from the web app's lib/messages.ts: who has seen,
+/// received, or not yet received [message], excluding its sender.
+({List<Receipt> seen, List<Receipt> delivered, List<Receipt> pending})
+messageReceipts(ChatMessage message, Conversation conversation) {
+  final senderId = message.sender?.id;
+  final names = {
+    for (final p in conversation.participants)
+      p.id: (p.nickname?.isNotEmpty ?? false) ? p.nickname! : p.name,
+  };
+  List<Receipt> from(String key, String timeKey, Set<int> skip) =>
+      records(message.json[key])
+          .where((r) => r['id'] is int && r['id'] != senderId)
+          .where((r) => !skip.contains(r['id']))
+          .map(
+            (r) => Receipt(
+              r['id'] as int,
+              names[r['id']] ?? r['name'] as String? ?? 'Member',
+              date(r[timeKey]),
+            ),
+          )
+          .toList()
+        ..sort((a, b) => (b.at ?? DateTime(0)).compareTo(a.at ?? DateTime(0)));
+  final seen = from('read_by', 'read_at', const {});
+  final delivered = from('delivered_to', 'delivered_at', {
+    for (final r in seen) r.id,
+  });
+  final reached = {
+    for (final r in [...seen, ...delivered]) r.id,
+  };
+  final pending = [
+    for (final p in conversation.participants)
+      if (p.id != senderId && !reached.contains(p.id))
+        Receipt(p.id, names[p.id]!),
+  ];
+  return (seen: seen, delivered: delivered, pending: pending);
 }

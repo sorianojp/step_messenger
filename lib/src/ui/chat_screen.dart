@@ -16,6 +16,7 @@ import '../theme.dart';
 import 'conversation_details.dart';
 import 'interactive_composer.dart';
 import 'message_bubble.dart';
+import 'message_info.dart';
 import 'voice_recorder.dart';
 import 'widgets.dart';
 
@@ -498,11 +499,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 title: const Text('Forward'),
                 onTap: () => Navigator.pop(context, 'forward'),
               ),
+              ListTile(
+                leading: Icon(
+                  message.saved ? Icons.bookmark : Icons.bookmark_border,
+                ),
+                title: Text(
+                  message.saved ? 'Remove from saved' : 'Save message',
+                ),
+                onTap: () => Navigator.pop(context, 'save'),
+              ),
               if (_conversation.can('can_pin_messages'))
                 ListTile(
                   leading: const Icon(Icons.push_pin_outlined),
                   title: Text(message.pinned ? 'Unpin message' : 'Pin message'),
                   onTap: () => Navigator.pop(context, 'pin'),
+                ),
+              if (mine)
+                ListTile(
+                  leading: const Icon(Icons.info_outline),
+                  title: const Text('Message info'),
+                  onTap: () => Navigator.pop(context, 'info'),
                 ),
               if (mine && ['text', 'attachment'].contains(message.type))
                 ListTile(
@@ -552,8 +568,44 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }
       case 'forward':
         await _forward(message);
+      case 'save':
+        await _toggleSaved(message);
+      case 'info':
+        await showMessageInfo(context, message, _conversation);
       default:
         await _react(message, action);
+    }
+  }
+
+  /// Optimistic, like the web: the flag flips at once and reverts on error.
+  Future<void> _toggleSaved(ChatMessage message) async {
+    final saved = !message.saved;
+    void apply(bool value) => setState(() {
+      _messages = [
+        for (final m in _messages)
+          m.id == message.id
+              ? ChatMessage({...m.json, 'saved_by_me': value})
+              : m,
+      ];
+    });
+    apply(saved);
+    try {
+      await session.api.request(
+        saved ? 'PUT' : 'DELETE',
+        '$_path/messages/${message.id}/save',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(saved ? 'Saved' : 'Removed from saved'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      apply(!saved);
+      showError(context, e);
     }
   }
 

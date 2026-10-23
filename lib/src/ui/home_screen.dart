@@ -7,6 +7,7 @@ import '../theme.dart';
 import '../data/polling.dart';
 import 'chat_screen.dart';
 import 'contacts_screen.dart';
+import 'saved_screen.dart';
 import 'message_media.dart';
 import 'widgets.dart';
 import 'conversation_avatar.dart';
@@ -160,6 +161,22 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (mounted) await _load(reset: true);
   }
+
+  Future<void> _openSaved() => Navigator.push(
+    context,
+    MaterialPageRoute<void>(
+      builder: (_) => SavedScreen(
+        session: session,
+        onOpen: (id) async {
+          final data = await session.api.request(
+            'GET',
+            '${session.teamPath}/conversations/$id',
+          );
+          if (mounted) await _open(Conversation(data['data'] as Json));
+        },
+      ),
+    ),
+  );
 
   Future<void> _compose() async {
     final result = await Navigator.push<Conversation>(
@@ -506,6 +523,15 @@ class _HomeScreenState extends State<HomeScreen> {
         subtitle: Text(session.team?.name ?? 'No workspace'),
         trailing: const Icon(Icons.chevron_right),
         onTap: _chooseTeam,
+      ),
+      const Divider(),
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.bookmark_border),
+        title: const Text('Saved messages'),
+        subtitle: const Text('Messages you saved to find later'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: _openSaved,
       ),
       const Divider(),
       ListTile(
