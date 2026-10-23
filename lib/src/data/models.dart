@@ -127,6 +127,21 @@ bool isImageAttachment(Json attachment) =>
     attachment['preview_url'] != null &&
     (attachment['mime_type'] as String? ?? '').startsWith('image/');
 
+/// A STEP class the signed-in user teaches (GET /school-classes).
+class SchoolClassSummary {
+  SchoolClassSummary(this.json);
+  final Json json;
+  int get id => json['id'] as int;
+  String get name => json['name'] as String? ?? 'Class';
+  String get details => [
+    json['section'],
+    json['subject'],
+  ].whereType<String>().where((s) => s.isNotEmpty).join(' · ');
+  int get studentsCount => json['students_count'] as int? ?? 0;
+  int get joinedCount => json['joined_count'] as int? ?? 0;
+  int? get conversationId => json['conversation_id'] as int?;
+}
+
 class PageData<T> {
   PageData(this.items, this.next);
   final List<T> items;

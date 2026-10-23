@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:step_messenger/src/app.dart';
+import 'package:step_messenger/src/ui/contacts_screen.dart';
 import 'package:step_messenger/src/ui/conversation_details.dart';
 import 'package:step_messenger/src/data/api.dart';
 import 'package:step_messenger/src/data/models.dart';
@@ -478,4 +479,73 @@ void main() {
       session.dispose();
     },
   );
+
+  testWidgets('teachers start a class chat from the Class tab', (tester) async {
+    final posts = <String>[];
+    final classChat = conversation()
+      ..['id'] = 31
+      ..['type'] = 'group'
+      ..['display_name'] = 'Data Structures · BSIT-2A';
+    final client = ApiClient(
+      baseUrl: 'https://school.test',
+      client: MockClient((request) async {
+        final path = request.url.path;
+        if (path.endsWith('/school-classes')) {
+          return http.Response(
+            jsonEncode({
+              'data': [
+                {
+                  'id': 5,
+                  'name': 'Data Structures',
+                  'subject': 'DATA STRUCTURES',
+                  'section': 'BSIT-2A',
+                  'students_count': 40,
+                  'joined_count': 12,
+                  'conversation_id': null,
+                },
+              ],
+            }),
+            200,
+          );
+        }
+        if (path.endsWith('/school-classes/5/conversation')) {
+          posts.add(request.method);
+          return http.Response(jsonEncode({'data': classChat}), 201);
+        }
+        if (path.endsWith('/contacts')) {
+          return http.Response(jsonEncode(page([])), 200);
+        }
+        return http.Response('{"data":{}}', 200);
+      }),
+    );
+    final session = TestSession(client);
+    Conversation? opened;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async => opened = await Navigator.push<Conversation>(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    ContactsScreen(session: session, selecting: true),
+              ),
+            ),
+            child: const Text('compose'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('compose'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Class'));
+    await tester.pumpAndSettle();
+    expect(find.text('12 of 40 students on Uhoo!'), findsOneWidget);
+    await tester.tap(find.text('Start chat'));
+    await tester.pumpAndSettle();
+    expect(posts, ['POST']);
+    expect(opened?.id, 31);
+    await tester.pumpWidget(const SizedBox());
+    session.dispose();
+  });
 }

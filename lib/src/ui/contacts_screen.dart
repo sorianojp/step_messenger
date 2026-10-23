@@ -28,7 +28,11 @@ class _ContactsScreenState extends State<ContactsScreen> {
   int _generation = 0;
   bool _loading = true;
   bool _creating = false;
-  bool _group = false;
+  String _mode = 'direct';
+  bool get _group => _mode == 'group';
+
+  /// STEP classes this user teaches; the Class tab only shows when non-empty.
+  List<SchoolClassSummary> _classes = [];
   Object? _error;
   Timer? _debounce;
 
@@ -36,6 +40,48 @@ class _ContactsScreenState extends State<ContactsScreen> {
   void initState() {
     super.initState();
     _load();
+    if (widget.selecting) _loadClasses();
+  }
+
+  Future<void> _loadClasses() async {
+    try {
+      final data = await widget.session.api.request(
+        'GET',
+        '${widget.session.teamPath}/school-classes',
+      );
+      if (mounted) {
+        setState(
+          () => _classes = records(
+            data['data'],
+          ).map(SchoolClassSummary.new).toList(),
+        );
+      }
+    } catch (_) {
+      /* Classes are optional; people can still be messaged. */
+    }
+  }
+
+  /// Opens the class chat, starting it first if there is none yet.
+  Future<void> _openClass(SchoolClassSummary schoolClass) async {
+    if (_creating) return;
+    setState(() => _creating = true);
+    try {
+      final data = await widget.session.api.request(
+        'POST',
+        '${widget.session.teamPath}/school-classes/${schoolClass.id}/conversation',
+      );
+      if (!mounted) return;
+      final conversation = Conversation(data['data'] as Json);
+      if (widget.selecting) {
+        Navigator.pop(context, conversation);
+      } else {
+        await widget.onOpen?.call(conversation);
+      }
+    } catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _creating = false);
+    }
   }
 
   Future<void> _load({bool more = false}) async {
@@ -110,15 +156,23 @@ class _ContactsScreenState extends State<ContactsScreen> {
               ),
               child: Row(
                 children: [
-                  for (final mode in const [false, true])
+                  for (final mode in [
+                    'direct',
+                    'group',
+                    if (_classes.isNotEmpty) 'class',
+                  ])
                     Expanded(
                       child: _ConversationModeButton(
-                        label: mode ? 'Group' : 'Direct',
-                        selected: _group == mode,
+                        label: switch (mode) {
+                          'group' => 'Group',
+                          'class' => 'Class',
+                          _ => 'Direct',
+                        },
+                        selected: _mode == mode,
                         onTap: _creating
                             ? null
                             : () => setState(() {
-                                _group = mode;
+                                _mode = mode;
                                 _selected.clear();
                               }),
                       ),
@@ -137,162 +191,189 @@ class _ContactsScreenState extends State<ContactsScreen> {
               decoration: const InputDecoration(hintText: 'Group name'),
             ),
           ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-          child: TextField(
-            controller: _search,
-            decoration: const InputDecoration(
-              hintText: 'Search people',
-              prefixIcon: Icon(Icons.search),
-            ),
-            onChanged: (_) {
-              _debounce?.cancel();
-              _debounce = Timer(const Duration(milliseconds: 300), _load);
-            },
-          ),
-        ),
-        if (_selected.isNotEmpty)
+        if (_mode == 'class') ...[
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                '${_selected.length} people selected',
-                style: const TextStyle(fontWeight: FontWeight.w600),
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+            child: Text(
+              'Your STEP classes this semester. Students join the class chat automatically, including those who sign in to Uhoo! later.',
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.6,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ),
-        if (_creating) const LinearProgressIndicator(),
-        Expanded(
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : _error != null
-              ? EmptyState(
-                  icon: Icons.wifi_off,
-                  title: 'Unable to load people',
-                  message: _error.toString(),
-                  action: TextButton(
-                    onPressed: _load,
-                    child: const Text('Retry'),
+          if (_creating) const LinearProgressIndicator(),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
+              children: [
+                for (final schoolClass in _classes)
+                  _ClassRow(
+                    schoolClass: schoolClass,
+                    onOpen: _creating ? null : () => _openClass(schoolClass),
                   ),
-                )
-              : _people.isEmpty
-              ? const EmptyState(
-                  icon: Icons.people_outline,
-                  title: 'No people found',
-                  message:
-                      'Try another name, or check back when more people join your workspace.',
-                )
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    itemCount: _people.length + (_next != null ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      if (index == _people.length) {
-                        return TextButton(
-                          onPressed: () => _load(more: true),
-                          child: const Text('Load more people'),
-                        );
-                      }
-                      final person = _people[index];
-                      final selected = _selected.containsKey(person.id);
-                      return Material(
-                        color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(
-                          StepShape.radiusMedium,
-                        ),
-                        child: InkWell(
+              ],
+            ),
+          ),
+        ] else ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+            child: TextField(
+              controller: _search,
+              decoration: const InputDecoration(
+                hintText: 'Search people',
+                prefixIcon: Icon(Icons.search),
+              ),
+              onChanged: (_) {
+                _debounce?.cancel();
+                _debounce = Timer(const Duration(milliseconds: 300), _load);
+              },
+            ),
+          ),
+          if (_selected.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '${_selected.length} people selected',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+          if (_creating) const LinearProgressIndicator(),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                ? EmptyState(
+                    icon: Icons.wifi_off,
+                    title: 'Unable to load people',
+                    message: _error.toString(),
+                    action: TextButton(
+                      onPressed: _load,
+                      child: const Text('Retry'),
+                    ),
+                  )
+                : _people.isEmpty
+                ? const EmptyState(
+                    icon: Icons.people_outline,
+                    title: 'No people found',
+                    message:
+                        'Try another name, or check back when more people join your workspace.',
+                  )
+                : RefreshIndicator(
+                    onRefresh: _load,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount: _people.length + (_next != null ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index == _people.length) {
+                          return TextButton(
+                            onPressed: () => _load(more: true),
+                            child: const Text('Load more people'),
+                          );
+                        }
+                        final person = _people[index];
+                        final selected = _selected.containsKey(person.id);
+                        return Material(
+                          color: Colors.transparent,
                           borderRadius: BorderRadius.circular(
                             StepShape.radiusMedium,
                           ),
-                          onTap: _creating
-                              ? null
-                              : () => _group
-                                    ? _toggle(person)
-                                    : _create([person]),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 12,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(
+                              StepShape.radiusMedium,
                             ),
-                            child: Row(
-                              children: [
-                                PersonAvatar(
-                                  person.name,
-                                  size: 44,
-                                  online: person.online,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        person.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 3),
-                                      Text(
-                                        person.role,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.onSurfaceVariant,
-                                        ),
-                                      ),
-                                    ],
+                            onTap: _creating
+                                ? null
+                                : () => _group
+                                      ? _toggle(person)
+                                      : _create([person]),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                              child: Row(
+                                children: [
+                                  PersonAvatar(
+                                    person.name,
+                                    size: 44,
+                                    online: person.online,
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                if (_group)
-                                  _ContactSelectionMark(selected: selected)
-                                else
-                                  Icon(
-                                    Icons.chat_bubble_outline_rounded,
-                                    size: 20,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          person.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          person.role,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                              ],
+                                  const SizedBox(width: 12),
+                                  if (_group)
+                                    _ContactSelectionMark(selected: selected)
+                                  else
+                                    Icon(
+                                      Icons.chat_bubble_outline_rounded,
+                                      size: 20,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
-                ),
-        ),
-        if (_group)
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed:
-                      _selected.isEmpty ||
-                          _creating ||
-                          _title.text.trim().isEmpty
-                      ? null
-                      : () => _create(_selected.values.toList()),
-                  child: const Text('Create group'),
+          ),
+          if (_group)
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed:
+                        _selected.isEmpty ||
+                            _creating ||
+                            _title.text.trim().isEmpty
+                        ? null
+                        : () => _create(_selected.values.toList()),
+                    child: const Text('Create group'),
+                  ),
                 ),
               ),
             ),
-          ),
+        ],
       ],
     );
     return widget.selecting
@@ -387,6 +468,84 @@ class _ContactSelectionMark extends StatelessWidget {
       child: selected
           ? Icon(Icons.check_rounded, size: 16, color: colors.onPrimary)
           : null,
+    );
+  }
+}
+
+/// A STEP class row in the Class tab, like ClassRow in the web composer.
+class _ClassRow extends StatelessWidget {
+  const _ClassRow({required this.schoolClass, required this.onOpen});
+  final SchoolClassSummary schoolClass;
+  final VoidCallback? onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final started = schoolClass.conversationId != null;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 22,
+            backgroundColor: colors.primary,
+            child: Icon(Icons.school_outlined, color: colors.onPrimary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  schoolClass.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  schoolClass.details,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${schoolClass.joinedCount} of ${schoolClass.studentsCount} students on Uhoo!',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          started
+              ? FilledButton.tonal(
+                  onPressed: onOpen,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                  child: const Text('Open chat'),
+                )
+              : FilledButton(
+                  onPressed: onOpen,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                  child: const Text('Start chat'),
+                ),
+        ],
+      ),
     );
   }
 }
