@@ -52,6 +52,7 @@ class _ConversationAvatarState extends State<ConversationAvatar> {
       widget.conversation.name,
       size: widget.size,
       group: widget.conversation.group,
+      brand: !widget.conversation.group,
       online: widget.online,
     );
     if (_photo == null) return fallback;

@@ -261,9 +261,6 @@ ThemeData stepTheme(Brightness brightness) {
         shape: RoundedRectangleBorder(borderRadius: radiusMedium),
       ),
     ),
-    iconButtonTheme: IconButtonThemeData(
-      style: IconButton.styleFrom(foregroundColor: colors.onSurfaceVariant),
-    ),
     // Web segmented tabs: muted track, selected item on the card colour.
     segmentedButtonTheme: SegmentedButtonThemeData(
       style: SegmentedButton.styleFrom(

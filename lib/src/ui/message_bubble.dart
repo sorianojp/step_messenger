@@ -90,6 +90,16 @@ class MessageBubble extends StatelessWidget {
     const tail = Radius.circular(StepShape.radiusBubbleTail);
     const round = Radius.circular(StepShape.radiusLarge);
     final width = MediaQuery.sizeOf(context).width;
+    final maxBubbleWidth = (width * .76).clamp(0, 420).toDouble();
+    final timestamp = [
+      if (message.edited && !message.unsent) 'Edited',
+      if (message.created != null) DateFormat.jm().format(message.created!),
+    ].join(' ');
+    final compactBubbleWidth = _compactBubbleWidth(
+      context,
+      maxWidth: maxBubbleWidth,
+      timestamp: timestamp,
+    );
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -103,167 +113,179 @@ class MessageBubble extends StatelessWidget {
             ? CrossAxisAlignment.end
             : CrossAxisAlignment.start,
         children: [
-          ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: (width * .82).clamp(0, 544).toDouble(),
-            ),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                GestureDetector(
-                  onLongPress: message.unsent ? null : onAction,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: surface,
-                      boxShadow: stepShadowSmall,
-                      border: mine && _interactive && !message.unsent
-                          ? Border.all(color: brand.withValues(alpha: .25))
-                          : null,
-                      borderRadius: BorderRadius.only(
-                        topLeft: round,
-                        topRight: round,
-                        bottomLeft: mine ? round : tail,
-                        bottomRight: mine ? tail : round,
-                      ),
-                    ),
-                    child: DefaultTextStyle.merge(
-                      style: TextStyle(color: ink),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (!mine && group && message.sender != null)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 4),
-                              child: Text(
-                                senderName ?? message.sender!.name,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: brand,
-                                ),
-                              ),
-                            ),
-                          if (message.pinned || _forwarded)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 6),
-                              child: Text(
-                                [
-                                  if (message.pinned) 'Pinned',
-                                  if (_forwarded) 'Forwarded',
-                                ].join(' · '),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: inkMuted,
-                                ),
-                              ),
-                            ),
-                          if (message.reply != null)
-                            _ReplyPreview(
-                              reply: message.reply!,
-                              currentUserId: session.user?.id,
-                              outgoing: outgoing,
-                              ink: ink,
-                              brand: brand,
-                            ),
-                          if (message.unsent)
-                            Text(
-                              mine
-                                  ? 'You unsent a message.'
-                                  : 'This message was unsent.',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontStyle: FontStyle.italic,
-                                color: colors.onSurfaceVariant,
-                              ),
-                            )
-                          else if (message.poll != null)
-                            _poll(context, brand)
-                          else if (message.event != null)
-                            _event(context, brand)
-                          else if (message.body.isNotEmpty)
-                            _MessageText(
-                              text: message.body,
-                              color: ink,
-                              accent: accent,
-                            ),
-                          if (!message.unsent &&
-                              message.linkPreviews.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 2),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  for (final preview in message.linkPreviews)
-                                    LinkPreviewCard(
-                                      preview: preview,
-                                      ink: colors.onSurface,
-                                      inkMuted: colors.onSurfaceVariant,
-                                      background: dark
-                                          ? StepPalette.cardDark
-                                          : StepPalette.card,
+          Align(
+            alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                // Messenger-style bubbles stay content-sized and leave a
+                // clear conversational gutter on the opposite side.
+                maxWidth: maxBubbleWidth,
+              ),
+              child: SizedBox(
+                width: compactBubbleWidth,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    GestureDetector(
+                      onLongPress: message.unsent ? null : onAction,
+                      child: Container(
+                        key: ValueKey('message-bubble-${message.id}'),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: surface,
+                          boxShadow: stepShadowSmall,
+                          border: mine && _interactive && !message.unsent
+                              ? Border.all(color: brand.withValues(alpha: .25))
+                              : null,
+                          borderRadius: BorderRadius.only(
+                            topLeft: round,
+                            topRight: round,
+                            bottomLeft: mine ? round : tail,
+                            bottomRight: mine ? tail : round,
+                          ),
+                        ),
+                        child: DefaultTextStyle.merge(
+                          style: TextStyle(color: ink),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (!mine && group && message.sender != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 4),
+                                  child: Text(
+                                    senderName ?? message.sender!.name,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: brand,
                                     ),
-                                ],
-                              ),
-                            ),
-                          if (!message.unsent)
-                            for (final (index, attachment)
-                                in message.attachments.indexed)
-                              Padding(
-                                padding: EdgeInsets.only(
-                                  top: index > 0 || message.body.isNotEmpty
-                                      ? 8
-                                      : 0,
+                                  ),
                                 ),
-                                child: _attachment(
-                                  context,
-                                  attachment,
+                              if (message.pinned || _forwarded)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 6),
+                                  child: Text(
+                                    [
+                                      if (message.pinned) 'Pinned',
+                                      if (_forwarded) 'Forwarded',
+                                    ].join(' · '),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: inkMuted,
+                                    ),
+                                  ),
+                                ),
+                              if (message.reply != null)
+                                _ReplyPreview(
+                                  reply: message.reply!,
+                                  currentUserId: session.user?.id,
                                   outgoing: outgoing,
                                   ink: ink,
-                                  inkMuted: inkMuted,
                                   brand: brand,
                                 ),
+                              if (message.unsent)
+                                Text(
+                                  mine
+                                      ? 'You unsent a message.'
+                                      : 'This message was unsent.',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontStyle: FontStyle.italic,
+                                    color: colors.onSurfaceVariant,
+                                  ),
+                                )
+                              else if (message.poll != null)
+                                _poll(context, brand)
+                              else if (message.event != null)
+                                _event(context, brand)
+                              else if (message.body.isNotEmpty)
+                                _MessageText(
+                                  text: message.body,
+                                  color: ink,
+                                  accent: accent,
+                                ),
+                              if (!message.unsent &&
+                                  message.linkPreviews.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      for (final preview
+                                          in message.linkPreviews)
+                                        LinkPreviewCard(
+                                          preview: preview,
+                                          ink: colors.onSurface,
+                                          inkMuted: colors.onSurfaceVariant,
+                                          background: dark
+                                              ? StepPalette.cardDark
+                                              : StepPalette.card,
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              if (!message.unsent)
+                                for (final (index, attachment)
+                                    in message.attachments.indexed)
+                                  Padding(
+                                    padding: EdgeInsets.only(
+                                      top: index > 0 || message.body.isNotEmpty
+                                          ? 8
+                                          : 0,
+                                    ),
+                                    child: _attachment(
+                                      context,
+                                      attachment,
+                                      outgoing: outgoing,
+                                      ink: ink,
+                                      inkMuted: inkMuted,
+                                      brand: brand,
+                                    ),
+                                  ),
+                              const SizedBox(height: 8),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                // Without a width factor Align asks for all
+                                // available width and makes every bubble look full.
+                                widthFactor: 1,
+                                child: Text(
+                                  timestamp,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: inkMuted,
+                                  ),
+                                ),
                               ),
-                          const SizedBox(height: 8),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: Text(
-                              [
-                                if (message.edited && !message.unsent) 'Edited',
-                                if (message.created != null)
-                                  DateFormat(
-                                    'MMM d, h:mm a',
-                                  ).format(message.created!),
-                              ].join(' '),
-                              style: TextStyle(fontSize: 11, color: inkMuted),
-                            ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
+                    if (message.reactions.isNotEmpty && !message.unsent)
+                      Positioned(
+                        right: 8,
+                        bottom: -14,
+                        child: Wrap(
+                          spacing: 4,
+                          children: [
+                            for (final reaction in message.reactions)
+                              _ReactionChip(
+                                reaction: reaction,
+                                onTap: () =>
+                                    onReact(reaction['emoji'] as String),
+                              ),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
-                if (message.reactions.isNotEmpty && !message.unsent)
-                  Positioned(
-                    right: 8,
-                    bottom: -14,
-                    child: Wrap(
-                      spacing: 4,
-                      children: [
-                        for (final reaction in message.reactions)
-                          _ReactionChip(
-                            reaction: reaction,
-                            onTap: () => onReact(reaction['emoji'] as String),
-                          ),
-                      ],
-                    ),
-                  ),
-              ],
+              ),
             ),
           ),
           if (status != null)
@@ -288,6 +310,65 @@ class MessageBubble extends StatelessWidget {
 
   bool get _forwarded =>
       (message.json['metadata'] as Map?)?['forwarded_from_message_id'] != null;
+
+  /// Plain text bubbles hug their contents like Messenger. Rich cards,
+  /// replies and media keep the standard maximum width so their controls have
+  /// predictable room.
+  double? _compactBubbleWidth(
+    BuildContext context, {
+    required double maxWidth,
+    required String timestamp,
+  }) {
+    if (message.reply != null ||
+        message.poll != null ||
+        message.event != null ||
+        message.attachments.isNotEmpty ||
+        message.linkPreviews.isNotEmpty) {
+      return null;
+    }
+
+    final labels = <({String text, TextStyle style})>[
+      (
+        text: message.unsent
+            ? mine
+                  ? 'You unsent a message.'
+                  : 'This message was unsent.'
+            : message.body,
+        style: const TextStyle(fontSize: 14),
+      ),
+      if (timestamp.isNotEmpty)
+        (text: timestamp, style: const TextStyle(fontSize: 11)),
+      if (!mine && group && message.sender != null)
+        (
+          text: senderName ?? message.sender!.name,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+      if (message.pinned || _forwarded)
+        (
+          text: [
+            if (message.pinned) 'Pinned',
+            if (_forwarded) 'Forwarded',
+          ].join(' · '),
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+        ),
+    ];
+    var widest = 0.0;
+    final inheritedStyle = DefaultTextStyle.of(context).style;
+    for (final label in labels) {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: label.text,
+          style: inheritedStyle.merge(label.style),
+        ),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+        textWidthBasis: TextWidthBasis.longestLine,
+      )..layout();
+      widest = widest < painter.width ? painter.width : widest;
+      painter.dispose();
+    }
+    return (widest + 32).clamp(64, maxWidth).toDouble();
+  }
 
   String _previewPath(Json attachment) =>
       '$conversationPath/messages/${message.id}/attachments/${attachment['id']}/preview';
@@ -922,6 +1003,7 @@ class _MessageTextState extends State<_MessageText> {
             },
         ],
       ),
+      textWidthBasis: TextWidthBasis.longestLine,
     );
   }
 

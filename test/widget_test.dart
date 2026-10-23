@@ -171,10 +171,7 @@ void main() {
             return http.Response(jsonEncode(page([conversation()])), 200);
           }
           if (request.url.path.endsWith('/messages')) {
-            return http.Response(
-              jsonEncode(page([message(7, 'Welcome to class!')])),
-              200,
-            );
+            return http.Response(jsonEncode(page([message(7, 'Hi')])), 200);
           }
           return http.Response('{"data":{}}', 200);
         }),
@@ -186,6 +183,14 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Jane Teacher').first);
       await tester.pumpAndSettle();
+      expect(
+        tester.getSize(find.byKey(const ValueKey('message-bubble-7'))).width,
+        lessThan(150),
+      );
+      expect(
+        tester.getTopLeft(find.byKey(const ValueKey('message-bubble-7'))).dx,
+        closeTo(16, 1),
+      );
       realtime.updates.add({
         'event': 'client-typing',
         'channel': 'presence-conversations.9',
@@ -212,6 +217,59 @@ void main() {
     },
   );
 
+  testWidgets('pinning a conversation does not activate notifications', (
+    tester,
+  ) async {
+    final data = conversation();
+    final writes = <http.Request>[];
+    final client = ApiClient(
+      baseUrl: 'https://school.test',
+      client: MockClient((request) async {
+        if (request.method == 'PATCH' && request.url.path.endsWith('/pin')) {
+          writes.add(request);
+          data['pinned_at'] = '2026-10-20T08:00:00Z';
+          return http.Response(jsonEncode({'data': data}), 200);
+        }
+        if (request.url.path.endsWith('/pinned')) {
+          return http.Response('{"data":[]}', 200);
+        }
+        return http.Response(jsonEncode({'data': data}), 200);
+      }),
+    );
+    final session = TestSession(client);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ConversationDetails(
+          session: session,
+          conversation: Conversation(data),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('pin-conversation')));
+    await tester.pumpAndSettle();
+    expect(writes, hasLength(1));
+    expect(writes.single.url.path, endsWith('/pin'));
+    expect(find.text('Unpin conversation'), findsOneWidget);
+    expect(find.text('Mentions only'), findsNothing);
+    expect(
+      tester
+          .widget<ListTile>(
+            find.byKey(const ValueKey('conversation-notifications')),
+          )
+          .selected,
+      isFalse,
+    );
+    expect(
+      tester
+          .widget<ListTile>(find.byKey(const ValueKey('pin-conversation')))
+          .selected,
+      isTrue,
+    );
+    await tester.pumpWidget(const SizedBox());
+    session.dispose();
+  });
+
   testWidgets('sign in fits a narrow screen without showing the server', (
     tester,
   ) async {
@@ -236,6 +294,33 @@ void main() {
     expect(find.textContaining('Messages, class updates'), findsNothing);
     expect(find.text('uhoo.udd.edu.ph'), findsNothing);
     expect(find.byType(TextField), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    session.dispose();
+  });
+
+  testWidgets('web-aligned home shell fits a narrow phone', (tester) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final client = ApiClient(
+      baseUrl: 'https://school.test',
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/conversations')) {
+          return http.Response(jsonEncode(page([conversation()])), 200);
+        }
+        return http.Response('{"data":{}}', 200);
+      }),
+    );
+    final session = TestSession(client);
+    await tester.pumpWidget(UhooApp(session: session));
+    await tester.pumpAndSettle();
+    expect(find.text('Chat'), findsOneWidget);
+    expect(find.text('Chats'), findsNothing);
+    expect(find.text('Messages'), findsNothing);
+    expect(find.byTooltip('Messages'), findsOneWidget);
+    expect(find.byTooltip('New message'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     session.dispose();
@@ -299,6 +384,12 @@ void main() {
     await tester.pumpAndSettle();
     expect((tester.widget(composer) as TextField).controller!.text, isEmpty);
     expect(find.text('Thank you!'), findsOneWidget);
+    final logicalWidth =
+        tester.view.physicalSize.width / tester.view.devicePixelRatio;
+    expect(
+      tester.getTopRight(find.byKey(const ValueKey('message-bubble-8'))).dx,
+      closeTo(logicalWidth - 16, 1),
+    );
     expect(find.text('Replying to Jane Teacher'), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());

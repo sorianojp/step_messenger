@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' show ImageFilter;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../data/models.dart';
@@ -312,7 +311,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
           child: TextField(
             controller: _search,
             onChanged: (_) => setState(() {}),
@@ -432,7 +431,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                       SliverToBoxAdapter(
-                        child: SizedBox(height: 90 + bottomInset),
+                        child: SizedBox(height: 24 + bottomInset),
                       ),
                     ],
                   ),
@@ -639,22 +638,21 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
     final unread = _conversations.fold<int>(0, (total, c) => total + c.unread);
+    final colors = Theme.of(context).colorScheme;
+    final pageTitle = switch (_tab) {
+      0 => _filter == 'Archived' ? 'Archived' : 'Chat',
+      1 => 'People',
+      _ => 'Profile',
+    };
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 82,
+        toolbarHeight: 76,
         titleSpacing: 20,
+        backgroundColor: colors.surface,
+        shape: const Border(),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              ['Messages', 'People', 'Your profile'][_tab],
-              // Web: font-heading text-2xl font-bold text-foreground.
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontSize: 24,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 4),
             GestureDetector(
               onTap: _chooseTeam,
               child: Row(
@@ -662,23 +660,39 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Flexible(
                     child: Text(
-                      session.team!.name,
+                      session.team!.name.toUpperCase(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: .8,
+                        color: colors.onSurfaceVariant,
                       ),
                     ),
                   ),
-                  const Icon(Icons.keyboard_arrow_down, size: 16),
+                  const SizedBox(width: 2),
+                  Icon(
+                    Icons.keyboard_arrow_down,
+                    size: 16,
+                    color: colors.onSurfaceVariant,
+                  ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              pageTitle,
+              // Web: font-heading text-2xl font-bold text-foreground.
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontSize: 24,
+                color: colors.onSurface,
               ),
             ),
           ],
         ),
         actions: [
-          if (_tab == 0)
+          if (_tab == 0 && _filter != 'Archived')
             IconButton.filled(
               tooltip: 'New message',
               onPressed: _compose,
@@ -696,21 +710,23 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 900),
-          // The bar floats over the body; the Scaffold reports its height as
-          // bottom padding here, which the outer context does not see.
-          child: Builder(
-            builder: (context) {
-              final bottomInset = MediaQuery.paddingOf(context).bottom;
-              return switch (_tab) {
-                0 => _inbox(bottomInset),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Material(
+              color: colors.surfaceContainerLow,
+              elevation: 1,
+              shadowColor: const Color(0x1a000000),
+              borderRadius: BorderRadius.circular(20),
+              clipBehavior: Clip.antiAlias,
+              child: switch (_tab) {
+                0 => _inbox(0),
                 1 => ContactsScreen(session: session, onOpen: _open),
-                _ => _settings(bottomInset),
-              };
-            },
+                _ => _settings(0),
+              },
+            ),
           ),
         ),
       ),
-      extendBody: true,
       bottomNavigationBar: _HomeNavigationBar(
         selectedIndex: _tab,
         unread: unread,
@@ -729,8 +745,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-/// A floating, frosted bar in the style of TimeTab: lists scroll under it and
-/// the selected tab fills with the brand.
+/// Native bottom navigation using the web app's card, border and selected
+/// brand-tint treatment.
 class _HomeNavigationBar extends StatelessWidget {
   const _HomeNavigationBar({
     required this.selectedIndex,
@@ -755,50 +771,34 @@ class _HomeNavigationBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final radius = BorderRadius.circular(24);
-
-    return SafeArea(
-      top: false,
-      minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      child: Center(
-        heightFactor: 1,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: ClipRRect(
-            borderRadius: radius,
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: colors.surface.withValues(alpha: .76),
-                  border: Border.all(
-                    color: colors.onSurface.withValues(alpha: .12),
-                  ),
-                  borderRadius: radius,
-                ),
-                child: SizedBox(
-                  height: 72,
-                  child: Padding(
-                    padding: const EdgeInsets.all(5),
-                    child: Row(
-                      children: [
-                        for (var i = 0; i < _destinations.length; i++) ...[
-                          if (i > 0) const SizedBox(width: 4),
-                          Expanded(
-                            child: _HomeNavigationItem(
-                              label: _destinations[i].label,
-                              icon: i == selectedIndex
-                                  ? _destinations[i].selectedIcon
-                                  : _destinations[i].icon,
-                              selected: i == selectedIndex,
-                              badge: i == 0 ? unread : 0,
-                              onTap: () => onDestinationSelected(i),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
+    return Material(
+      color: colors.surfaceContainerLow,
+      shape: Border(top: BorderSide(color: colors.outlineVariant)),
+      child: SafeArea(
+        top: false,
+        child: Center(
+          heightFactor: 1,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: SizedBox(
+              height: 60,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Row(
+                  children: [
+                    for (var i = 0; i < _destinations.length; i++)
+                      Expanded(
+                        child: _HomeNavigationItem(
+                          label: _destinations[i].label,
+                          icon: i == selectedIndex
+                              ? _destinations[i].selectedIcon
+                              : _destinations[i].icon,
+                          selected: i == selectedIndex,
+                          badge: i == 0 ? unread : 0,
+                          onTap: () => onDestinationSelected(i),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -827,42 +827,36 @@ class _HomeNavigationItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final foreground = selected ? colors.onPrimary : colors.onSurface;
+    final foreground = selected ? brandText(context) : colors.onSurfaceVariant;
 
     return Semantics(
+      label: label,
       selected: selected,
       button: true,
-      child: Material(
-        color: selected ? colors.primary : Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(24),
-          child: SizedBox(
-            height: 58,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // On the brand fill the badge inverts, or it would vanish.
-                Badge(
-                  isLabelVisible: badge > 0,
-                  label: Text(badge > 99 ? '99+' : '$badge'),
-                  backgroundColor: selected ? colors.onPrimary : null,
-                  textColor: selected ? colors.primary : null,
-                  child: Icon(icon, color: foreground, size: 22),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: foreground,
-                    fontSize: 12,
-                    fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
+      child: Tooltip(
+        message: label,
+        child: Center(
+          child: Material(
+            color: selected ? colors.primaryContainer : Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(StepShape.radiusMedium),
+            ),
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(StepShape.radiusMedium),
+              child: SizedBox(
+                width: 64,
+                height: 48,
+                child: Center(
+                  child: Badge(
+                    isLabelVisible: badge > 0,
+                    label: Text(badge > 99 ? '99+' : '$badge'),
+                    backgroundColor: colors.primary,
+                    textColor: colors.onPrimary,
+                    child: Icon(icon, color: foreground, size: 23),
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         ),

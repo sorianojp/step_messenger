@@ -926,208 +926,220 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ),
               const Divider(),
               if (_reply != null || _editing != null)
-                ListTile(
-                  dense: true,
-                  leading: Icon(_editing != null ? Icons.edit : Icons.reply),
-                  title: Text(
-                    _editing != null
-                        ? 'Editing message'
-                        : 'Replying to ${_reply!.sender?.name ?? 'message'}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                Material(
+                  color: colors.surfaceContainerLow,
+                  child: ListTile(
+                    dense: true,
+                    leading: Icon(_editing != null ? Icons.edit : Icons.reply),
+                    title: Text(
+                      _editing != null
+                          ? 'Editing message'
+                          : 'Replying to ${_reply!.sender?.name ?? 'message'}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  subtitle: Text(
-                    (_editing ?? _reply)!.preview,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing: IconButton(
-                    tooltip: 'Cancel',
-                    onPressed: _sending
-                        ? null
-                        : () => setState(() {
-                            if (_editing != null) {
-                              _body.text =
-                                  session.drafts[_conversation.id] ?? '';
-                            }
-                            _editing = null;
-                            _reply = null;
-                          }),
-                    icon: const Icon(Icons.close, size: 18),
+                    subtitle: Text(
+                      (_editing ?? _reply)!.preview,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: IconButton(
+                      tooltip: 'Cancel',
+                      onPressed: _sending
+                          ? null
+                          : () => setState(() {
+                              if (_editing != null) {
+                                _body.text =
+                                    session.drafts[_conversation.id] ?? '';
+                              }
+                              _editing = null;
+                              _reply = null;
+                            }),
+                      icon: const Icon(Icons.close, size: 18),
+                    ),
                   ),
                 ),
               if (_files.isNotEmpty)
-                SizedBox(
-                  height: 54,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    children: [
-                      for (final file in _files)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: InputChip(
-                            label: SizedBox(
-                              width: 135,
-                              child: Text(
-                                file.name,
-                                overflow: TextOverflow.ellipsis,
+                ColoredBox(
+                  color: colors.surfaceContainerLow,
+                  child: SizedBox(
+                    height: 54,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      children: [
+                        for (final file in _files)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: InputChip(
+                              label: SizedBox(
+                                width: 135,
+                                child: Text(
+                                  file.name,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
+                              avatar: const Icon(Icons.attach_file, size: 16),
+                              onDeleted: _sending
+                                  ? null
+                                  : () => setState(() => _files.remove(file)),
                             ),
-                            avatar: const Icon(Icons.attach_file, size: 16),
-                            onDeleted: _sending
-                                ? null
-                                : () => setState(() => _files.remove(file)),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               if (_mentionOptions.isNotEmpty && !_recordingVoice)
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 220),
-                  child: ListView(
-                    shrinkWrap: true,
-                    padding: EdgeInsets.zero,
-                    children: [
-                      for (final option in _mentionOptions)
-                        ListTile(
-                          dense: true,
-                          leading: option.token == '@everyone'
-                              ? const CircleAvatar(
-                                  radius: 14,
-                                  child: Icon(
-                                    Icons.campaign_outlined,
-                                    size: 16,
-                                  ),
-                                )
-                              : PersonAvatar(option.label, size: 28),
-                          title: Text(option.label),
-                          subtitle: Text(
-                            option.description,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                Material(
+                  color: colors.surfaceContainerLow,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    child: ListView(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
+                      children: [
+                        for (final option in _mentionOptions)
+                          ListTile(
+                            dense: true,
+                            leading: option.token == '@everyone'
+                                ? const CircleAvatar(
+                                    radius: 14,
+                                    child: Icon(
+                                      Icons.campaign_outlined,
+                                      size: 16,
+                                    ),
+                                  )
+                                : PersonAvatar(option.label, size: 28),
+                            title: Text(option.label),
+                            subtitle: Text(
+                              option.description,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            onTap: () => _insertMention(option),
                           ),
-                          onTap: () => _insertMention(option),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-                  child: _recordingVoice
-                      ? VoiceRecorderBar(onDone: _sendVoice)
-                      : Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Web composer at phone width: text field and Send
-                            // on one row, the action icons underneath.
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Expanded(
-                                  child: TextField(
-                                    controller: _body,
-                                    enabled: !_sending,
-                                    minLines: 1,
-                                    maxLines: 5,
-                                    textCapitalization:
-                                        TextCapitalization.sentences,
-                                    style: const TextStyle(fontSize: 14),
-                                    decoration: const InputDecoration(
-                                      hintText: 'Type a message...',
-                                    ),
-                                    onChanged: (_) => _composerChanged(),
-                                    onTap: () =>
-                                        Future.microtask(_syncMentions),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                IconButton.filled(
-                                  tooltip: _editing != null
-                                      ? 'Save edit'
-                                      : 'Send message',
-                                  style: IconButton.styleFrom(
-                                    fixedSize: const Size(44, 44),
-                                    disabledBackgroundColor:
-                                        colors.surfaceContainerHigh,
-                                    disabledForegroundColor:
-                                        colors.onSurfaceVariant,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(
-                                        StepShape.radiusMedium,
+              ColoredBox(
+                color: colors.surfaceContainerLow,
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+                    child: _recordingVoice
+                        ? VoiceRecorderBar(onDone: _sendVoice)
+                        : Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Web composer at phone width: text field and Send
+                              // on one row, the action icons underneath.
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _body,
+                                      enabled: !_sending,
+                                      minLines: 1,
+                                      maxLines: 5,
+                                      textCapitalization:
+                                          TextCapitalization.sentences,
+                                      style: const TextStyle(fontSize: 14),
+                                      decoration: const InputDecoration(
+                                        hintText: 'Type a message...',
                                       ),
+                                      onChanged: (_) => _composerChanged(),
+                                      onTap: () =>
+                                          Future.microtask(_syncMentions),
                                     ),
                                   ),
-                                  onPressed:
-                                      _sending ||
-                                          (_body.text.trim().isEmpty &&
-                                              _files.isEmpty)
-                                      ? null
-                                      : _send,
-                                  icon: _sending
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : Icon(
-                                          _editing != null
-                                              ? Icons.check
-                                              : Icons.send_outlined,
-                                          size: 20,
+                                  const SizedBox(width: 8),
+                                  IconButton.filled(
+                                    tooltip: _editing != null
+                                        ? 'Save edit'
+                                        : 'Send message',
+                                    style: IconButton.styleFrom(
+                                      fixedSize: const Size(44, 44),
+                                      disabledBackgroundColor:
+                                          colors.surfaceContainerHigh,
+                                      disabledForegroundColor:
+                                          colors.onSurfaceVariant,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(
+                                          StepShape.radiusMedium,
                                         ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                for (final (tooltip, icon, action)
-                                    in <(String, IconData, VoidCallback)>[
-                                      (
-                                        'Attach file',
-                                        Icons.attach_file,
-                                        _pickFiles,
                                       ),
-                                      (
-                                        'Record voice message',
-                                        Icons.mic_none_rounded,
-                                        () {
-                                          _stopTyping();
-                                          setState(
-                                            () => _recordingVoice = true,
-                                          );
-                                        },
-                                      ),
-                                      (
-                                        'Create poll',
-                                        Icons.checklist_rounded,
-                                        () => _interactive('polls'),
-                                      ),
-                                      (
-                                        'Create event',
-                                        Icons.calendar_today_outlined,
-                                        () => _interactive('events'),
-                                      ),
-                                    ])
-                                  IconButton(
-                                    tooltip: tooltip,
-                                    onPressed: _sending || _editing != null
+                                    ),
+                                    onPressed:
+                                        _sending ||
+                                            (_body.text.trim().isEmpty &&
+                                                _files.isEmpty)
                                         ? null
-                                        : action,
-                                    icon: Icon(icon, size: 20),
+                                        : _send,
+                                    icon: _sending
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : Icon(
+                                            _editing != null
+                                                ? Icons.check
+                                                : Icons.send_outlined,
+                                            size: 20,
+                                          ),
                                   ),
-                              ],
-                            ),
-                          ],
-                        ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  for (final (tooltip, icon, action)
+                                      in <(String, IconData, VoidCallback)>[
+                                        (
+                                          'Attach file',
+                                          Icons.attach_file,
+                                          _pickFiles,
+                                        ),
+                                        (
+                                          'Record voice message',
+                                          Icons.mic_none_rounded,
+                                          () {
+                                            _stopTyping();
+                                            setState(
+                                              () => _recordingVoice = true,
+                                            );
+                                          },
+                                        ),
+                                        (
+                                          'Create poll',
+                                          Icons.checklist_rounded,
+                                          () => _interactive('polls'),
+                                        ),
+                                        (
+                                          'Create event',
+                                          Icons.calendar_today_outlined,
+                                          () => _interactive('events'),
+                                        ),
+                                      ])
+                                    IconButton(
+                                      tooltip: tooltip,
+                                      onPressed: _sending || _editing != null
+                                          ? null
+                                          : action,
+                                      icon: Icon(icon, size: 20),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                  ),
                 ),
               ),
             ],

@@ -231,6 +231,7 @@ class _ConversationDetailsState extends State<ConversationDetails> {
           ),
           const SizedBox(height: 28),
           ListTile(
+            key: const ValueKey('conversation-notifications'),
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.folder_outlined),
             title: const Text('Shared media, files and links'),
@@ -316,8 +317,15 @@ class _ConversationDetailsState extends State<ConversationDetails> {
             },
           ),
           ListTile(
+            key: const ValueKey('pin-conversation'),
             contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.push_pin_outlined),
+            selected: _conversation.pinned,
+            selectedColor: Theme.of(context).colorScheme.primary,
+            leading: Icon(
+              _conversation.pinned
+                  ? Icons.push_pin_rounded
+                  : Icons.push_pin_outlined,
+            ),
             title: Text(
               _conversation.pinned ? 'Unpin conversation' : 'Pin conversation',
             ),

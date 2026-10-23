@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../data/models.dart';
 import '../data/session.dart';
+import '../theme.dart';
 import 'widgets.dart';
 
 class ContactsScreen extends StatefulWidget {
@@ -99,16 +100,32 @@ class _ContactsScreenState extends State<ContactsScreen> {
     final body = Column(
       children: [
         if (widget.selecting)
-          SwitchListTile(
-            title: const Text('Create a group'),
-            subtitle: const Text('Bring your community together'),
-            value: _group,
-            onChanged: _creating
-                ? null
-                : (value) => setState(() {
-                    _group = value;
-                    _selected.clear();
-                  }),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(StepShape.radiusMedium),
+              ),
+              child: Row(
+                children: [
+                  for (final mode in const [false, true])
+                    Expanded(
+                      child: _ConversationModeButton(
+                        label: mode ? 'Group' : 'Direct',
+                        selected: _group == mode,
+                        onTap: _creating
+                            ? null
+                            : () => setState(() {
+                                _group = mode;
+                                _selected.clear();
+                              }),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
         if (_group)
           Padding(
@@ -169,6 +186,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
                     physics: const AlwaysScrollableScrollPhysics(),
                     itemCount: _people.length + (_next != null ? 1 : 0),
                     itemBuilder: (context, index) {
@@ -179,32 +197,78 @@ class _ContactsScreenState extends State<ContactsScreen> {
                         );
                       }
                       final person = _people[index];
-                      return ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 5,
+                      final selected = _selected.containsKey(person.id);
+                      return Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(
+                          StepShape.radiusMedium,
                         ),
-                        leading: PersonAvatar(
-                          person.name,
-                          online: person.online,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(
+                            StepShape.radiusMedium,
+                          ),
+                          onTap: _creating
+                              ? null
+                              : () => _group
+                                    ? _toggle(person)
+                                    : _create([person]),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                            child: Row(
+                              children: [
+                                PersonAvatar(
+                                  person.name,
+                                  size: 44,
+                                  online: person.online,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        person.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        person.role,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                if (_group)
+                                  _ContactSelectionMark(selected: selected)
+                                else
+                                  Icon(
+                                    Icons.chat_bubble_outline_rounded,
+                                    size: 20,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
-                        title: Text(
-                          person.name,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(person.role),
-                        trailing: _group
-                            ? Checkbox(
-                                value: _selected.containsKey(person.id),
-                                onChanged: _creating
-                                    ? null
-                                    : (_) => _toggle(person),
-                              )
-                            : const Icon(Icons.chat_bubble_outline, size: 20),
-                        onTap: _creating
-                            ? null
-                            : () =>
-                                  _group ? _toggle(person) : _create([person]),
                       );
                     },
                   ),
@@ -252,5 +316,77 @@ class _ContactsScreenState extends State<ContactsScreen> {
     _title.dispose();
     _debounce?.cancel();
     super.dispose();
+  }
+}
+
+class _ConversationModeButton extends StatelessWidget {
+  const _ConversationModeButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: selected ? colors.surfaceContainerLow : Colors.transparent,
+        borderRadius: BorderRadius.circular(StepShape.radiusSmall),
+        boxShadow: selected ? stepShadowSmall : null,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(StepShape.radiusSmall),
+          child: SizedBox(
+            height: 40,
+            child: Center(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: selected
+                      ? brandText(context)
+                      : colors.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ContactSelectionMark extends StatelessWidget {
+  const _ContactSelectionMark({required this.selected});
+
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      width: 24,
+      height: 24,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: selected ? colors.primary : Colors.transparent,
+        border: Border.all(
+          color: selected ? colors.primary : colors.outlineVariant,
+        ),
+      ),
+      child: selected
+          ? Icon(Icons.check_rounded, size: 16, color: colors.onPrimary)
+          : null,
+    );
   }
 }

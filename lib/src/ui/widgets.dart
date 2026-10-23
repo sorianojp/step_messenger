@@ -72,11 +72,13 @@ class PersonAvatar extends StatelessWidget {
     super.key,
     this.size = 48,
     this.group = false,
+    this.brand = false,
     this.online = false,
   });
   final String name;
   final double size;
   final bool group;
+  final bool brand;
   final bool online;
   @override
   Widget build(BuildContext context) {
@@ -96,29 +98,30 @@ class PersonAvatar extends StatelessWidget {
       height: size,
       child: Stack(
         children: [
-          // Web Avatar: groups fill with the brand, people sit on muted
-          // with a hairline ring.
+          // Contact avatars sit on muted with a hairline ring. Conversation
+          // avatars opt into [brand] for direct chats; group chats remain
+          // muted, matching common.tsx in the web client.
           Container(
             width: size,
             height: size,
             decoration: BoxDecoration(
-              color: group ? colors.primary : colors.surfaceContainerHigh,
+              color: brand ? colors.primary : colors.surfaceContainerHigh,
               shape: BoxShape.circle,
-              border: group ? null : Border.all(color: colors.outlineVariant),
+              border: brand ? null : Border.all(color: colors.outlineVariant),
             ),
             alignment: Alignment.center,
             child: group
                 ? Icon(
                     Icons.group_outlined,
                     size: size * .45,
-                    color: colors.onPrimary,
+                    color: brand ? colors.onPrimary : colors.onSurface,
                   )
                 : Text(
                     initials,
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: size * .32,
-                      color: colors.onSurface,
+                      color: brand ? colors.onPrimary : colors.onSurface,
                     ),
                   ),
           ),
@@ -149,27 +152,37 @@ class EmptyState extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: const EdgeInsets.all(22),
+            width: 48,
+            height: 48,
+            alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerLow,
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 36),
+            child: Icon(
+              icon,
+              size: 24,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
           Text(
             title,
             textAlign: TextAlign.center,
             style: Theme.of(
               context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 8),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+          const SizedBox(height: 4),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 288),
+            child: Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                height: 1.7,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           if (action != null) ...[const SizedBox(height: 20), action!],
