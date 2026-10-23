@@ -696,13 +696,20 @@ class _HomeScreenState extends State<HomeScreen> {
             IconButton.filled(
               tooltip: 'New message',
               onPressed: _compose,
+              // Explicit: the app bar's action icon colour would win otherwise.
               style: IconButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 fixedSize: const Size(40, 40),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(StepShape.radiusMedium),
                 ),
               ),
-              icon: const Icon(Icons.edit_square, size: 20),
+              icon: Icon(
+                Icons.edit_square,
+                size: 20,
+                color: Theme.of(context).colorScheme.onPrimary,
+              ),
             ),
           const SizedBox(width: 10),
         ],
